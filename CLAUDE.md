@@ -54,6 +54,11 @@ Project specification and modular execution prompts for building an interactive 
 
 ## 2. Standardized Judo Technique YAML Schema (`ippon_seoi_nage.yaml`)
 
+Coordinate convention (Godot, Y-up, metres, rotations in degrees as Euler XYZ):
+- Tori starts at the origin with rotation 0 and faces +Z (the models' front).
+- Uki starts at `[0, 0, 1.2]` with rotation `[0, 180, 0]`, facing Tori.
+- Bone rotations are relative to the bone's rest pose (T-pose).
+
 ```yaml
 technique_name: "Ippon Seoi-nage"
 category: "Te-waza (Handworp)"
@@ -77,7 +82,7 @@ keyframes:
         right_arm: [45.0, 30.0, -10.0]
         left_arm: [60.0, -20.0, 40.0]
     uki:
-      position: [0.0, 0.0, -1.2]
+      position: [0.0, 0.0, 1.2]
       rotation: [0.0, 180.0, 0.0]
       bones:
         spine: [5.0, 0.0, 0.0]
@@ -87,7 +92,7 @@ keyframes:
     phase: "Tsukuri (Instap & Draai)"
     description: "Tori draait in, duikt onder Uki's arm en klemt de oksel in."
     tori:
-      position: [0.0, 0.0, -0.4]
+      position: [0.0, 0.0, 0.4]
       rotation: [0.0, 90.0, 0.0]
       bones:
         spine: [-15.0, 0.0, 0.0]
@@ -95,8 +100,8 @@ keyframes:
         right_arm: [90.0, 0.0, 0.0]
         left_arm: [40.0, -40.0, 20.0]
     uki:
-      position: [0.0, 0.8, -0.4]
-      rotation: [15.0, 160.0, 10.0]
+      position: [0.0, 0.8, 0.4]
+      rotation: [-15.0, 160.0, -10.0]
       bones:
         spine: [-20.0, 10.0, -15.0]
 
@@ -104,15 +109,15 @@ keyframes:
     phase: "Kake (Worp & Handeling)"
     description: "Tori tilt Uki over zijn heup/rug door te buigen in de heupen."
     tori:
-      position: [0.0, 0.0, -0.4]
+      position: [0.0, 0.0, 0.4]
       rotation: [0.0, 90.0, 0.0]
       bones:
         spine: [-45.0, 0.0, 0.0]
         right_shoulder: [90.0, 60.0, -40.0]
         left_arm: [20.0, -60.0, 10.0]
     uki:
-      position: [0.4, 1.4, 0.2]
-      rotation: [45.0, 90.0, 80.0]
+      position: [-0.4, 1.4, -0.2]
+      rotation: [-45.0, 90.0, -80.0]
       bones:
         right_leg: [30.0, 0.0, 20.0]
 
@@ -120,13 +125,13 @@ keyframes:
     phase: "Landing / Tatami"
     description: "Uki: ukemi (val) op de mat."
     tori:
-      position: [0.6, 0.0, 0.2]
+      position: [-0.6, 0.0, -0.2]
       rotation: [0.0, 45.0, 0.0]
       bones:
         spine: [0.0, 0.0, 0.0]
     uki:
-      position: [0.8, 0.0, 0.8]
-      rotation: [90.0, 0.0, 90.0]
+      position: [-0.8, 0.0, -0.8]
+      rotation: [-90.0, 0.0, -90.0]
       bones:
 ```
 

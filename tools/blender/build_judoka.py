@@ -26,18 +26,20 @@ UKI_GI = (0.02, 0.10, 0.50)
 # Jacket cross-section: (z, half-width x, half-depth y), ascending z.
 PROFILE = [(0.70, .200, .150), (0.80, .195, .143), (0.90, .183, .133), (0.97, .172, .127),
            (1.05, .165, .120), (1.15, .168, .120), (1.25, .180, .124), (1.34, .192, .127),
-           (1.40, .192, .122), (1.44, .165, .105), (1.47, .120, .085), (1.49, .070, .060)]
+           (1.40, .192, .122), (1.43, .175, .112), (1.455, .130, .090), (1.47, .085, .075),
+           (1.48, .070, .066)]
 
 LAPEL_WIDTH, LAPEL_THICK = 0.045, 0.012
 D = math.radians
 # Lapel keys from the back of the neck: (theta, z, offset) or ('x', x, z, offset).
 # theta 0 = back (+y), 90 deg = wearer's left (+x), 180 deg = front (-y).
-TOP_LAPEL = [(0, 1.465, .002), (D(45), 1.463, .002), (D(90), 1.458, .002), (D(135), 1.445, .002),
-             (D(160), 1.42, .004), ('x', .05, 1.37, .008), ('x', 0.0, 1.24, .013),
+# The collar part hugs the neck (z ~1.475, where the jacket closes in around it).
+TOP_LAPEL = [(0, 1.475, .002), (D(45), 1.474, .002), (D(90), 1.472, .002), (D(135), 1.465, .002),
+             (D(160), 1.44, .004), ('x', .05, 1.37, .008), ('x', 0.0, 1.24, .013),
              ('x', -.06, 1.12, .008), ('x', -.10, .99, .004), ('x', -.115, .85, .004),
              ('x', -.12, .71, .004)]
-UNDER_LAPEL = [(0, 1.465, .002), (-D(45), 1.463, .002), (-D(90), 1.458, .002), (-D(135), 1.445, .002),
-               (-D(160), 1.42, .002), ('x', -.05, 1.37, .002), ('x', 0.0, 1.24, .001),
+UNDER_LAPEL = [(0, 1.475, .002), (-D(45), 1.474, .002), (-D(90), 1.472, .002), (-D(135), 1.465, .002),
+               (-D(160), 1.44, .002), ('x', -.05, 1.37, .002), ('x', 0.0, 1.24, .001),
                ('x', .035, 1.16, -.010)]  # tucks under the top lapel
 
 
@@ -166,7 +168,7 @@ def grip_bones(path):
         head = p + n * LAPEL_THICK
         return head, head + n * 0.04
     belt_p, belt_n = surf(math.pi, 0.975, 0.027)
-    collar_p, collar_n = surf(0, 1.465, 0.002 + LAPEL_THICK)
+    collar_p, collar_n = surf(0, 1.475, 0.002 + LAPEL_THICK)
     g = [("BackCollarGrip", "Chest", collar_p, collar_p + collar_n * 0.04),
          ("BeltGrip", "Hips", belt_p, belt_p + belt_n * 0.04),
          ("LeftLapelGrip", "Chest", *on_lapel(True)),
@@ -260,12 +262,15 @@ def build(name, gi_rgb):
                                   depth=d.length, matrix=M)
         tag(r["verts"], bone, mi)
 
-    def sph(c, r, bone, mi, sc=(1, 1, 1), cut=None):
+    def sph(c, r, bone, mi, sc=(1, 1, 1), plane=None, seg=(24, 14)):
+        """UV sphere; plane=(point, normal) keeps only the part on the normal's side."""
         M = Matrix.Translation(Vector(c)) @ Matrix.Diagonal((*sc, 1))
-        vs = bmesh.ops.create_uvsphere(bm, u_segments=24, v_segments=14, radius=r, matrix=M)["verts"]
-        if cut:
-            bmesh.ops.delete(bm, geom=[v for v in vs if cut(v.co)], context='VERTS')
-            vs = [v for v in vs if v.is_valid]
+        vs = bmesh.ops.create_uvsphere(bm, u_segments=seg[0], v_segments=seg[1], radius=r, matrix=M)["verts"]
+        if plane:
+            geom = set(vs) | {e for v in vs for e in v.link_edges} | {f for v in vs for f in v.link_faces}
+            res = bmesh.ops.bisect_plane(bm, geom=list(geom), plane_co=plane[0], plane_no=plane[1],
+                                         clear_inner=True)
+            vs = [v for v in vs if v.is_valid] + [g for g in res["geom_cut"] if isinstance(g, bmesh.types.BMVert)]
         tag(vs, bone, mi)
 
     def tube(rings, mi, hem=0.008, hem_depth=0.04, seg=24):
@@ -324,16 +329,16 @@ def build(name, gi_rgb):
     # --- collar + lapels (eri)
     sweep([(p, n, torso_w(p.z, p.x)) for p, n, _ in path], LAPEL_WIDTH, LAPEL_THICK, G)
 
-    # --- skin showing in the V between the lapels
-    tops = sorted((p for p, _, top in path if top and 1.22 < p.z < 1.46), key=lambda p: p.z)
+    # --- skin showing in the V between the lapels, up to the neck
+    tops = sorted((p for p, _, top in path if top and 1.22 < p.z < 1.48 and p.y < 0), key=lambda p: p.z)
 
     def lapel_x(z):
         return min(tops, key=lambda p: abs(p.z - z)).x
     patch, rows = [], []
-    for k in range(9):
-        z = 1.25 + 0.19 * k / 8
+    for k in range(11):
+        z = 1.25 + 0.235 * k / 10
         hw = max(lapel_x(z) - 0.02, 0.002)
-        rows.append([vert(surf(th_front(x, z), z, 0.0015)[0], torso_w(z, x))
+        rows.append([vert(surf(th_front(x, z), z, 0.003)[0], torso_w(z, x))
                      for x in (-hw + 2 * hw * c / 6 for c in range(7))])
     for r1, r2 in zip(rows, rows[1:]):
         for i in range(6):
@@ -344,7 +349,8 @@ def build(name, gi_rgb):
     lapel_th = th_front(-0.098, 0.975)  # where the top lapel runs under the belt
 
     def belt_off(th):
-        return 0.003 + 0.012 * (1 - smooth(0.25, 0.45, abs(th - lapel_th)))
+        # 0.007 clears the skirt flaring out below the belt; bulges over the lapel
+        return 0.007 + 0.010 * (1 - smooth(0.25, 0.45, abs(th - lapel_th)))
     sweep([(*surf(th, 0.975, belt_off(th)), {"Hips": 1}) for th in belt_ths], 0.045, 0.01, B, closed=True)
     knot, _ = surf(math.pi, 0.982, 0.03)
     sph(knot, 0.03, "Hips", B, (1.25, 0.6, 0.9))
@@ -355,10 +361,18 @@ def build(name, gi_rgb):
         sweep([(p, front, {"Hips": 1}) for p in tail], 0.04, 0.008, B)
 
     # --- neck, head, hair
-    cyl((0, 0, 1.39), (0, 0, 1.56), 0.05, 0.05, "Neck", S)
-    sph((0, -0.005, 1.645), 0.105, "Head", S, (0.92, 1.0, 1.12))
-    sph((0, 0.008, 1.66), 0.112, "Head", H, (0.95, 1.0, 1.08),
-        cut=lambda co: co.y < -0.03 and co.z < 1.72 or co.z < 1.60)
+    # neck: tapers upwards, leans slightly forward, blends Chest -> Neck -> Head
+    tube([(Vector((0, 0.010, 1.38)), .068, {"Chest": 1}),
+          (Vector((0, 0.006, 1.45)), .062, {"Chest": .6, "Neck": .4}),
+          (Vector((0, 0.000, 1.51)), .056, {"Neck": 1}),
+          (Vector((0, -0.006, 1.58)), .054, {"Neck": .4, "Head": .6})], S, seg=20)
+    head_c, head_r, head_sc = Vector((0, -0.005, 1.645)), 0.105, Vector((0.92, 1.0, 1.12))
+    sph(head_c, head_r, "Head", S, head_sc, seg=(40, 24))
+    for s in (1, -1):
+        sph((0.094 * s, 0.0, 1.635), 0.03, "Head", S, (0.3, 0.6, 1.0))  # ears
+    # hair: a cap 1.2 cm outside the head, cut by a tilted plane (forehead ~1.70, nape ~1.59)
+    sph(head_c, head_r, "Head", H, (head_sc * head_r + Vector((.012, .012, .012))) / head_r,
+        plane=(Vector((0, 0, 1.645)), Vector((0, 0.5, 1)).normalized()), seg=(40, 24))
 
     for side, s in (("Left", 1), ("Right", -1)):
         # wide sleeves, hollow cuff above the wrist; forearm visible inside

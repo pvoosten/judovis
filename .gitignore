@@ -1,0 +1,22 @@
+# Godot 4
+.godot/
+/android/
+export_presets.cfg
+
+# .NET / C#
+.mono/
+bin/
+obj/
+*.user
+.vs/
+.idea/
+TestResults/
+
+# Blender autosaves/backups
+*.blend1
+*.blend2
+*.blend@
+
+# OS
+Thumbs.db
+.DS_Store

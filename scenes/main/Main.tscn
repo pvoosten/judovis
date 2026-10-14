@@ -1,6 +1,45 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=9 format=3]
 
-[ext_resource type="Script" path="res://src/Main.cs" id="1_main"]
+[ext_resource type="Script" uid="uid://dyv4rgjd813fd" path="res://src/Main.cs" id="1_main"]
+[ext_resource type="Script" path="res://src/Playback/JudoTechniquePlayer.cs" id="2_player"]
+[ext_resource type="PackedScene" uid="uid://b5i2r2m845rkv" path="res://assets/models/Tori.glb" id="3_tori"]
+[ext_resource type="PackedScene" uid="uid://g7hxj7y8rhkg" path="res://assets/models/Uki.glb" id="4_uki"]
+
+[sub_resource type="Environment" id="Environment_main"]
+background_mode = 1
+background_color = Color(0.16, 0.18, 0.22, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.75, 0.78, 0.85, 1)
+ambient_light_energy = 0.5
+
+[sub_resource type="StandardMaterial3D" id="Material_tatami"]
+albedo_color = Color(0.36, 0.55, 0.33, 1)
+roughness = 0.9
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_tatami"]
+material = SubResource("Material_tatami")
+size = Vector2(8, 8)
 
 [node name="Main" type="Node3D"]
 script = ExtResource("1_main")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_main")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+shadow_enabled = true
+
+[node name="Tatami" type="MeshInstance3D" parent="."]
+mesh = SubResource("PlaneMesh_tatami")
+
+[node name="Tori" parent="." instance=ExtResource("3_tori")]
+
+[node name="Uki" parent="." instance=ExtResource("4_uki")]
+
+[node name="Player" type="Node3D" parent="." node_paths=PackedStringArray("Tori", "Uki")]
+script = ExtResource("2_player")
+Tori = NodePath("../Tori")
+Uki = NodePath("../Uki")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+current = true

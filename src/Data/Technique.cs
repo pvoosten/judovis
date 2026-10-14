@@ -61,15 +61,16 @@ public sealed class JudokaPose
 {
     private Dictionary<string, Vec3> _bones = [];
 
-    /// <summary>Root position in metres (Godot, Y-up).</summary>
-    public Vec3 Position { get; set; }
+    /// <summary>Root position in metres (Godot, Y-up). Null = not keyed here: interpolated from neighbours.</summary>
+    public Vec3? Position { get; set; }
 
-    /// <summary>Root rotation, Euler XYZ degrees.</summary>
-    public Vec3 Rotation { get; set; }
+    /// <summary>Root rotation, Euler XYZ degrees. Null = not keyed here: interpolated from neighbours.</summary>
+    public Vec3? Rotation { get; set; }
 
     /// <summary>
-    /// Bone rotations (Euler XYZ degrees, relative to the T-pose rest), keyed by YAML bone name
-    /// such as "right_shoulder". Resolve to skeleton names with <see cref="BoneNames"/>.
+    /// Bone rotations (Euler XYZ degrees about the character's axes, on top of the T-pose rest),
+    /// keyed by YAML bone name such as "right_shoulder". Resolve to skeleton names with
+    /// <see cref="BoneNames"/>. Bones not listed here are interpolated from neighbouring keyframes.
     /// </summary>
     public Dictionary<string, Vec3> Bones { get => _bones; set => _bones = value ?? []; }
 }

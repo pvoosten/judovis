@@ -70,7 +70,12 @@ Project specification and modular execution prompts for building an interactive 
 Coordinate convention (Godot, Y-up, metres, rotations in degrees as Euler XYZ):
 - Tori starts at the origin with rotation 0 and faces +Z (the models' front).
 - Uki starts at `[0, 0, 1.2]` with rotation `[0, 180, 0]`, facing Tori.
-- Bone rotations are relative to the bone's rest pose (T-pose).
+- `position` is the judoka's root, which is **between the feet at floor level** (y = 0 = standing).
+- Bone rotations are applied on top of the T-pose rest, about the character's own axes in Godot
+  convention: X = character's right, Y = up, -Z = the way the character faces. So `spine: [-45, 0, 0]`
+  bows 45° forward. Child bones follow their parents.
+- Any value (position, rotation, bone) may be omitted from a keyframe; it is then interpolated
+  between the neighbouring keyframes that set it (see Phase 3).
 
 ```yaml
 technique_name: "Ippon Seoi-nage"
@@ -212,7 +217,16 @@ Create the core C# data models (using YamlDotNet) matching a strict schema for j
 - Keyframes array: time, phase (e.g., Kuzushi, Tsukuri, Kake), description, tori/uki states (positions [x,y,z], root rotations [x,y,z], and bone rotation dictionaries).
 Integrate YamlDotNet via NuGet, write a service to read and export YAML files, and include a default test asset for "Ippon Seoi-nage" (5th Kyu / Yellow Belt / #FFD700).
 
-## Phase 3: Godot 3D Player & Skeleton Interpolation
+## Phase 3: Godot 3D Player & Skeleton Interpolation — DONE
+
+Status:
+- Engine-independent (unit tested): `KeyTrack` (per-value keys, bracketing sample, hold outside range),
+  `TechniqueTracks` (technique -> tracks per judoka; also `KeyframeIndexAt` for the phase),
+  `PlaybackClock` (speed, reverse, loop).
+- Godot: `JudoTechniquePlayer` (Node3D; exports `Tori`, `Uki`, `Loop`, `Speed`; `Load`, `Play`, `Pause`,
+  `TogglePlay`, `Stop`, `Seek`, `Step`; signals `TimeChanged`, `KeyframeChanged`, `PlayingChanged`)
+  and `JudokaRig` (finds the Skeleton3D, binds bones by name, lerp/slerp, applies bone deltas).
+- `scenes/main/Main.tscn`: tatami, light, Tori/Uki instances, player, temporary fixed camera.
 
 Write a Godot C# script named `JudoTechniquePlayer.cs` that inherits from Node3D. 
 This script should take parsed YAML technique data and drive the imported 3D avatars (Tori and Uki) in real-time. 

@@ -53,8 +53,10 @@ public class TechniqueSerializerTests
     {
         var t = TechniqueSerializer.Deserialize(Minimal);
 
-        Assert.Equal(Vec3.Zero, t.Keyframes[0].Uki.Position);
+        Assert.Null(t.Keyframes[0].Uki.Position);
+        Assert.Null(t.Keyframes[0].Uki.Rotation);
         Assert.Empty(t.Keyframes[0].Tori.Bones);
+        Assert.DoesNotContain("uki:\n    position", TechniqueSerializer.Serialize(t)); // nulls are omitted
     }
 
     [Theory]

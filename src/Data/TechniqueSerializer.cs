@@ -22,6 +22,7 @@ public static class TechniqueSerializer
     private static readonly ISerializer Serializer = new SerializerBuilder()
         .WithNamingConvention(UnderscoredNamingConvention.Instance)
         .WithTypeConverter(new Vec3YamlConverter())
+        .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull)
         .DisableAliases()
         .Build();
 
@@ -54,7 +55,7 @@ public static class TechniqueSerializer
 /// <summary>Reads and writes <see cref="Vec3"/> as a flow sequence: <c>[x, y, z]</c>.</summary>
 internal sealed class Vec3YamlConverter : IYamlTypeConverter
 {
-    public bool Accepts(Type type) => type == typeof(Vec3);
+    public bool Accepts(Type type) => type == typeof(Vec3) || type == typeof(Vec3?);
 
     public object ReadYaml(IParser parser, Type type, ObjectDeserializer rootDeserializer)
     {

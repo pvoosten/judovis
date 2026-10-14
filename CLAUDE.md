@@ -221,6 +221,10 @@ It must:
 2. Target the standardized bone names within Godot `Skeleton3D` nodes dynamically using the bone rotation dictionaries from YAML.
 3. Handle playback state (playing, paused, elapsed time tracking, looping).
 
+Missing bones: a keyframe does not have to list every bone. For each bone (per judoka), interpolate
+between the nearest earlier and later keyframes that *do* list that bone. Before the first / after
+the last keyframe listing it, hold that value. A bone listed in no keyframe stays at its rest pose.
+
 ## Phase 4: Dynamic Camera Perspective Manager
 
 Create a CameraManager C# script for Godot that manages a central Camera3D and allows seamless switching between three distinct perspectives:

@@ -31,6 +31,19 @@ Conventions:
 - C# namespaces follow the folder under `src/`.
 - Binary assets (`.blend`, `.glb`, images) are stored in Git LFS (see `.gitattributes`).
 - Every step is committed.
+- `src/Data/` stays free of Godot APIs (except `TechniqueLoader.cs`) so it can be unit tested with plain .NET.
+- Commit Godot's generated `*.uid` and `*.import` files; `.godot/`, `bin/`, `obj/` are ignored.
+- Exported builds need an export filter for non-resource files: `data/techniques/*.yaml`.
+
+## Commands
+
+```sh
+dotnet build JudoVisualizer.csproj                     # build the Godot C# project
+dotnet test JudoVisualizer.sln                         # unit tests (tests/JudoVisualizer.Tests)
+G=/c/tools/godot/Godot_v4.7.2-stable_mono_win64_console.exe
+$G --headless --path . --import                        # (re)import assets after adding/changing them
+$G --headless --path . --quit-after 10                 # run the main scene headless (smoke test)
+```
 
 # Judo Technique Visualizer 3D - Development Guidelines & Prompts
 
@@ -177,7 +190,15 @@ Task 1: Locate the armature/skeleton for the judoka models (Tori and Uki). Stand
 Task 2: Ensure Tori and Uki have their origin points at [0,0,0] on floor level with transforms applied.
 Task 3: Export Tori and Uki as binary glTF (.glb) files directly into the Godot project path `assets/models/`.
 
-## Phase 2: Godot C# Core Data Model & YAML I/O
+## Phase 2: Godot C# Core Data Model & YAML I/O — DONE
+
+Status: Godot project at repo root (`project.godot`, `JudoVisualizer.csproj`, net8.0, YamlDotNet 16.3.0).
+- Models: `Technique`, `BeltColor`, `Keyframe`, `JudokaPose`, `Vec3` (YAML `[x, y, z]`), plus
+  `KyuGrades` (belt table) and `BoneNames` (YAML key -> skeleton bone, ignoring case/underscores).
+- `TechniqueSerializer`: strict YAML <-> model (unknown keys fail) + `TechniqueValidator`
+  (kyu 1-6, hex matches kyu, duration > 0, increasing keyframe times, known bone names).
+- `TechniqueLoader` (Godot FileAccess): `LoadDirectory("res://data/techniques")`, `Load`, `Save` (use `user://techniques`).
+- Test asset: `data/techniques/ippon_seoi_nage.yaml`. Main scene `scenes/main/Main.tscn` logs loaded techniques.
 
 Initialize a new Godot 4 C# project structure for a Judo Technique Visualizer tool. 
 Create the core C# data models (using YamlDotNet) matching a strict schema for judo techniques:

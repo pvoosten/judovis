@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>JudoVisualizer.Tests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- The data layer is engine-independent and compiled in directly; only TechniqueLoader needs Godot. -->
+    <Compile Include="../../src/Data/**/*.cs" Exclude="../../src/Data/TechniqueLoader.cs" LinkBase="Data" />
+    <None Include="../../data/techniques/*.yaml" LinkBase="techniques" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="xunit" Version="2.6.6" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.6" />
+    <PackageReference Include="YamlDotNet" Version="16.3.0" />
+  </ItemGroup>
+</Project>

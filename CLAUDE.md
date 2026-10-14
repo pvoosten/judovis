@@ -23,9 +23,11 @@ The Godot project lives at the repo root (`res://` = repo root).
 | `src/Playback/` | JudoTechniquePlayer (`JudoVisualizer.Playback`) |
 | `src/Camera/` | CameraManager (`JudoVisualizer.Camera`) |
 | `src/UI/` | UI controllers (`JudoVisualizer.UI`) |
+| `src/Dev/`, `scenes/dev/` | Developer tools (PosePreview screenshot renderer) |
+| `tests/JudoVisualizer.Tests/Fixtures/` | Fixed YAML used by unit tests (independent of `data/`) |
 | `tests/` | Unit tests (YAML parsing, interpolation) |
 | `art_source/blender/` | Source `.blend` files; ignored by Godot (`.gdignore`) |
-| `tools/blender/` | Python scripts for building/exporting the judoka; ignored by Godot |
+| `tools/blender/` | Python scripts: build/export the judoka, author techniques (`techniques/`); ignored by Godot |
 
 Conventions:
 - C# namespaces follow the folder under `src/`.
@@ -43,7 +45,23 @@ dotnet test JudoVisualizer.sln                         # unit tests (tests/JudoV
 G=/c/tools/godot/Godot_v4.7.2-stable_mono_win64_console.exe
 $G --headless --path . --import                        # (re)import assets after adding/changing them
 $G --headless --path . --quit-after 10                 # run the main scene headless (smoke test)
+# Screenshots of a technique at given times/views (opens a window; views: side, other_side,
+# front, back, three_quarter, top). Files: <out>/<technique>_<time>_<view>.png
+$G --path . res://scenes/dev/PosePreview.tscn -- --technique=ippon_seoi_nage --times=0,1.2,2.6 --views=side --out=C:/tmp/preview
 ```
+
+## Authoring techniques
+
+Technique YAML is generated from Blender, not written by hand:
+- `tools/blender/technique_tools.py`: helpers to pose the judoka (`place`, `rot`, `turn`, `aim`, `ik` onto
+  grip bones, `pin`, `ground`), key poses and `export_yaml()`. Its maths mirrors `JudokaRig.cs`.
+- `tools/blender/techniques/<technique>.py`: metadata + one pose function per keyframe. Run it in Blender
+  (judoka.blend open) to key the timeline (FPS 50) and write `data/techniques/<technique>.yaml`.
+- Workflow: edit the technique script -> run it in Blender -> save the .blend -> check with PosePreview
+  (also between keyframes) -> `dotnet test` -> commit.
+- Keep a root rotation change between consecutive keyframes below ~120° so slerp takes the intended way
+  round; add in-between keyframes for big rotations (e.g. Uki's flip).
+- Euler angles are Godot `EulerOrder.Xyz` (R = Rx·Ry·Rz), which is Blender's Euler order `'ZYX'`.
 
 # Judo Technique Visualizer 3D - Development Guidelines & Prompts
 

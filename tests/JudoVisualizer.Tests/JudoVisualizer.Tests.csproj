@@ -12,6 +12,7 @@
     <Compile Include="../../src/Playback/**/*.cs"
              Exclude="../../src/Playback/JudokaRig.cs;../../src/Playback/JudoTechniquePlayer.cs" LinkBase="Playback" />
     <None Include="../../data/techniques/*.yaml" LinkBase="techniques" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Fixtures/*.yaml" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />

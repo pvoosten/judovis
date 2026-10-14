@@ -1,0 +1,74 @@
+# Test fixture (the original hand-written example). Tests depend on its exact values.
+technique_name: "Ippon Seoi-nage"
+category: "Te-waza (Handworp)"
+code: "T1"
+difficulty: "Medium"
+kyu_grade: 5 # 5e kyu = Geel
+belt_color:
+  name: "Gele band"
+  hex: "#FFD700"
+duration_seconds: 2.5
+keyframes:
+  - time: 0.0
+    phase: "Kuzushi (Balansverstoring)"
+    description: "Tori trekt Uki naar voren en uit balans op de teen."
+    tori:
+      position: [0.0, 0.0, 0.0]
+      rotation: [0.0, 0.0, 0.0]
+      bones:
+        spine: [0.0, 0.0, 0.0]
+        right_shoulder: [20.0, -10.0, 15.0]
+        right_arm: [45.0, 30.0, -10.0]
+        left_arm: [60.0, -20.0, 40.0]
+    uki:
+      position: [0.0, 0.0, 1.2]
+      rotation: [0.0, 180.0, 0.0]
+      bones:
+        spine: [5.0, 0.0, 0.0]
+        left_leg: [0.0, 0.0, -10.0]
+
+  - time: 0.9
+    phase: "Tsukuri (Instap & Draai)"
+    description: "Tori draait in, duikt onder Uki's arm en klemt de oksel in."
+    tori:
+      position: [0.0, 0.0, 0.4]
+      rotation: [0.0, 90.0, 0.0]
+      bones:
+        spine: [-15.0, 0.0, 0.0]
+        right_shoulder: [85.0, 40.0, -30.0]
+        right_arm: [90.0, 0.0, 0.0]
+        left_arm: [40.0, -40.0, 20.0]
+    uki:
+      position: [0.0, 0.8, 0.4]
+      rotation: [-15.0, 160.0, -10.0]
+      bones:
+        spine: [-20.0, 10.0, -15.0]
+
+  - time: 1.6
+    phase: "Kake (Worp & Handeling)"
+    description: "Tori tilt Uki over zijn heup/rug door te buigen in de heupen."
+    tori:
+      position: [0.0, 0.0, 0.4]
+      rotation: [0.0, 90.0, 0.0]
+      bones:
+        spine: [-45.0, 0.0, 0.0]
+        right_shoulder: [90.0, 60.0, -40.0]
+        left_arm: [20.0, -60.0, 10.0]
+    uki:
+      position: [-0.4, 1.4, -0.2]
+      rotation: [-45.0, 90.0, -80.0]
+      bones:
+        right_leg: [30.0, 0.0, 20.0]
+
+  - time: 2.5
+    phase: "Landing / Tatami"
+    description: "Uki: ukemi (val) op de mat."
+    tori:
+      position: [-0.6, 0.0, -0.2]
+      rotation: [0.0, 45.0, 0.0]
+      bones:
+        spine: [0.0, 0.0, 0.0]
+    uki:
+      position: [-0.8, 0.0, -0.8]
+      rotation: [-90.0, 0.0, -90.0]
+      bones:

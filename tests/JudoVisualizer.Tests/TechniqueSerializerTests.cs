@@ -6,7 +6,7 @@ namespace JudoVisualizer.Tests;
 public class TechniqueSerializerTests
 {
     private static string ReadTechnique(string file) =>
-        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "techniques", file));
+        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", file));
 
     private const string Minimal = """
         technique_name: "Test"
@@ -19,9 +19,9 @@ public class TechniqueSerializerTests
         """;
 
     [Fact]
-    public void IpponSeoiNage_Loads()
+    public void SampleTechnique_Loads()
     {
-        var t = TechniqueSerializer.Deserialize(ReadTechnique("ippon_seoi_nage.yaml"));
+        var t = TechniqueSerializer.Deserialize(ReadTechnique("sample_technique.yaml"));
 
         Assert.Equal("Ippon Seoi-nage", t.TechniqueName);
         Assert.Equal("T1", t.Code);
@@ -38,7 +38,7 @@ public class TechniqueSerializerTests
     [Fact]
     public void Serialize_RoundTrips()
     {
-        var original = TechniqueSerializer.Deserialize(ReadTechnique("ippon_seoi_nage.yaml"));
+        var original = TechniqueSerializer.Deserialize(ReadTechnique("sample_technique.yaml"));
 
         var yaml = TechniqueSerializer.Serialize(original);
         var again = TechniqueSerializer.Deserialize(yaml);

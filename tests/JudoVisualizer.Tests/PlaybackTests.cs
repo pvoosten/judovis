@@ -6,8 +6,8 @@ namespace JudoVisualizer.Tests;
 
 public class PlaybackTests
 {
-    private static Technique IpponSeoiNage() => TechniqueSerializer.Deserialize(
-        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "techniques", "ippon_seoi_nage.yaml")));
+    private static Technique SampleTechnique() => TechniqueSerializer.Deserialize(
+        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "sample_technique.yaml")));
 
     [Theory]
     [InlineData(-1.0f, 0, 0, 0.0f)]   // before the first key: hold it
@@ -36,7 +36,7 @@ public class PlaybackTests
     [Fact]
     public void Tracks_OnlyContainKeyframesThatSetTheBone()
     {
-        var tracks = TechniqueTracks.Build(IpponSeoiNage());
+        var tracks = TechniqueTracks.Build(SampleTechnique());
 
         // Tori's right_arm is keyed at 0.0 and 0.9 only: missing at 1.6 and 2.5.
         var rightArm = tracks.Tori.Bones["RightArm"];
@@ -87,7 +87,7 @@ public class PlaybackTests
     [InlineData(2.0f, 2)]
     [InlineData(2.5f, 3)]
     public void KeyframeIndexAt_ReturnsActivePhase(float time, int expected) =>
-        Assert.Equal(expected, TechniqueTracks.Build(IpponSeoiNage()).KeyframeIndexAt(time));
+        Assert.Equal(expected, TechniqueTracks.Build(SampleTechnique()).KeyframeIndexAt(time));
 
     [Theory]
     [InlineData(1.0f, 0.5f, 1f, false, 1.5f, false)]

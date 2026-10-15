@@ -1,7 +1,7 @@
 # Godot 4
 .godot/
 /android/
-export_presets.cfg
+/build/
 
 # .NET / C#
 .mono/

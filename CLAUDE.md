@@ -37,9 +37,18 @@ Conventions:
   Godot-free logic elsewhere (e.g. `KeyTrack`, `OrbitModel`, `TechniqueCatalog`) is listed file by file in
   `tests/JudoVisualizer.Tests/JudoVisualizer.Tests.csproj`; keep Godot code in separate files.
 - Commit Godot's generated `*.uid` and `*.import` files; `.godot/`, `bin/`, `obj/` are ignored.
-- Exported builds need an export filter for non-resource files: `data/techniques/*.yaml`.
+- Exported builds need an export filter for non-resource files: `data/techniques/*.yaml` (set in `export_presets.cfg`).
 
 ## Commands
+
+```powershell
+.uild.ps1                                    # build, unit tests, asset import, headless smoke run
+.uild.ps1 -Configuration Release -Export     # ... plus Windows export to build\windows\JudoVisualizer.exe
+.uild.ps1 -SkipTests -SkipSmokeRun -Clean    # options; see Get-Help .uild.ps1 -Detailed
+```
+
+Export preset "Windows Desktop" is in `export_presets.cfg` (committed; includes `data/techniques/*.yaml`).
+Individual steps:
 
 ```sh
 dotnet build JudoVisualizer.csproj                     # build the Godot C# project

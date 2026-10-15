@@ -44,6 +44,7 @@ Conventions:
 ```powershell
 .\build.ps1                                    # build, unit tests, asset import, headless smoke run
 .\build.ps1 -Configuration Release -Export     # ... plus Windows export to build\windows\JudoVisualizer.exe
+.\run.ps1                                      # build and start the app (-Console: log here; -NoBuild; -Exported)
 ```
 
 ```sh

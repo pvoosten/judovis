@@ -23,8 +23,10 @@ importlib.reload(tt)
 
 OUT = os.path.normpath(os.path.join(TOOLS, "..", "..", "data", "techniques", "ippon_seoi_nage.yaml"))
 
-META = dict(technique_name="Ippon Seoi-nage", category="Te-waza (Handworp)", code="T1", difficulty="Medium",
-            kyu_grade=5, belt_name="Gele band", belt_hex="#FFD700", duration_seconds=2.6)
+META = dict(technique_name="Ippon Seoi-nage", dutch_name="Schouderworp aan één arm", waza_group="nage_waza",
+            category="Te-waza (Handworp)", code="N4-3", difficulty="Medium",
+            kyu_grade=4, belt_name="Oranje band", belt_hex="#FF8C00", source="VJF leerlijn 2015, oranje",
+            duration_seconds=2.6)
 
 GRIP_DISTANCE = 0.62  # between the two roots while gripping
 

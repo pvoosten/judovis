@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using YamlDotNet.Serialization;
 
 namespace JudoVisualizer.Data;
 
@@ -10,23 +11,57 @@ public sealed class Technique
 
     public string TechniqueName { get; set; } = "";
 
-    /// <summary>Technique group, e.g. "Te-waza", "Koshi-waza".</summary>
+    /// <summary>Dutch description of the technique, e.g. "Grote buitenwaartse maaiworp".</summary>
+    public string DutchName { get; set; } = "";
+
+    /// <summary>One of <see cref="WazaGroups"/>, e.g. "nage_waza".</summary>
+    public string WazaGroup { get; set; } = "";
+
+    /// <summary>Sub-group, e.g. "Te-waza (Handworp)", "Osaekomi-waza (Houdgreep)".</summary>
     public string Category { get; set; } = "";
 
-    /// <summary>Short reference code, e.g. "T1".</summary>
+    /// <summary>
+    /// Reference code: waza letter (N nage, O osaekomi, S shime, K kansetsu), grade (kyu, or D for
+    /// Dan / extra) and number, e.g. "N5-1".
+    /// </summary>
     public string Code { get; set; } = "";
 
     public string Difficulty { get; set; } = "";
 
-    /// <summary>1-6: 6 = 6th kyu (white belt) ... 1 = 1st kyu (brown belt). See <see cref="KyuGrades"/>.</summary>
+    /// <summary>
+    /// 1-6: 6 = 6th kyu (white belt) ... 1 = 1st kyu (brown belt); 0 = Dan / extra.
+    /// See <see cref="KyuGrades"/>.
+    /// </summary>
     public int KyuGrade { get; set; }
 
     public BeltColor BeltColor { get => _beltColor; set => _beltColor = value ?? new(); }
 
+    /// <summary>Only taught from U18 (shime- and kansetsu-waza in the VJF leerlijn).</summary>
+    public bool U18 { get; set; }
+
+    /// <summary>Where the grade comes from, e.g. "VJF leerlijn 2015, geel".</summary>
+    public string Source { get; set; } = "";
+
+    /// <summary>Length of the animation; 0 when the technique is not animated yet.</summary>
     public float DurationSeconds { get; set; }
 
-    /// <summary>Keyframes in ascending <see cref="Keyframe.Time"/> order.</summary>
+    /// <summary>Keyframes in ascending <see cref="Keyframe.Time"/> order; empty = not animated yet.</summary>
     public List<Keyframe> Keyframes { get => _keyframes; set => _keyframes = value ?? []; }
+
+    /// <summary>True when the technique has keyframes (catalogue entries without animation do not).</summary>
+    [YamlIgnore]
+    public bool IsAnimated => _keyframes.Count > 0;
+}
+
+/// <summary>Allowed values of <see cref="Technique.WazaGroup"/>.</summary>
+public static class WazaGroups
+{
+    public const string Nage = "nage_waza";
+    public const string Osaekomi = "osaekomi_waza";
+    public const string Shime = "shime_waza";
+    public const string Kansetsu = "kansetsu_waza";
+
+    public static readonly IReadOnlyList<string> All = [Nage, Osaekomi, Shime, Kansetsu];
 }
 
 public sealed class BeltColor

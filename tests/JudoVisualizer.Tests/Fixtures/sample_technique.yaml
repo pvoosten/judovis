@@ -1,5 +1,6 @@
 # Test fixture (the original hand-written example). Tests depend on its exact values.
 technique_name: "Ippon Seoi-nage"
+waza_group: "nage_waza"
 category: "Te-waza (Handworp)"
 code: "T1"
 difficulty: "Medium"

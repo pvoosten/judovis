@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace JudoVisualizer.Data;
@@ -16,8 +17,11 @@ public static class TechniqueValidator
         if (string.IsNullOrWhiteSpace(t.TechniqueName))
             errors.Add("technique_name is required.");
 
+        if (!WazaGroups.All.Contains(t.WazaGroup))
+            errors.Add($"waza_group must be one of {string.Join(", ", WazaGroups.All)}, got '{t.WazaGroup}'.");
+
         if (!KyuGrades.IsValid(t.KyuGrade))
-            errors.Add($"kyu_grade must be 1-6, got {t.KyuGrade}.");
+            errors.Add($"kyu_grade must be 0-6 (0 = Dan / extra), got {t.KyuGrade}.");
 
         if (!HexColor.IsMatch(t.BeltColor.Hex))
             errors.Add($"belt_color.hex must look like #RRGGBB, got '{t.BeltColor.Hex}'.");
@@ -25,11 +29,14 @@ public static class TechniqueValidator
                  && !string.Equals(t.BeltColor.Hex, KyuGrades.Get(t.KyuGrade).Hex, StringComparison.OrdinalIgnoreCase))
             errors.Add($"belt_color.hex {t.BeltColor.Hex} does not match kyu_grade {t.KyuGrade} ({KyuGrades.Get(t.KyuGrade).Hex}).");
 
-        if (t.DurationSeconds <= 0)
-            errors.Add($"duration_seconds must be > 0, got {t.DurationSeconds}.");
-
+        // Catalogue entries without animation have neither keyframes nor duration.
         if (t.Keyframes.Count == 0)
-            errors.Add("at least one keyframe is required.");
+        {
+            if (t.DurationSeconds != 0)
+                errors.Add("duration_seconds needs keyframes (leave both out for a technique without animation).");
+        }
+        else if (t.DurationSeconds <= 0)
+            errors.Add($"duration_seconds must be > 0, got {t.DurationSeconds}.");
 
         for (var i = 0; i < t.Keyframes.Count; i++)
         {

@@ -60,6 +60,7 @@ public class PlaybackTests
     {
         var yaml = """
             technique_name: "Gap"
+            waza_group: "nage_waza"
             kyu_grade: 6
             belt_color: { name: "Wit", hex: "#FFFFFF" }
             duration_seconds: 2.0

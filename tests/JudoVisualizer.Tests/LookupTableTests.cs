@@ -25,9 +25,10 @@ public class LookupTableTests
     [Fact]
     public void KyuGrades_MatchBeltTable()
     {
-        Assert.Equal([6, 5, 4, 3, 2, 1], KyuGrades.All.Select(k => k.Grade));
+        Assert.Equal([6, 5, 4, 3, 2, 1, 0], KyuGrades.All.Select(k => k.Grade));
         Assert.Equal(new KyuGradeInfo(5, "Yellow Belt", "#FFD700"), KyuGrades.Get(5));
         Assert.Equal("#8B4513", KyuGrades.Get(1).Hex);
-        Assert.Throws<ArgumentOutOfRangeException>(() => KyuGrades.Get(0));
+        Assert.Equal("#000000", KyuGrades.Get(KyuGrades.DanExtra).Hex);
+        Assert.Throws<ArgumentOutOfRangeException>(() => KyuGrades.Get(7));
     }
 }

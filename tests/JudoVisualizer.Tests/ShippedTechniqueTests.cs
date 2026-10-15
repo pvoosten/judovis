@@ -4,7 +4,7 @@ using Xunit;
 
 namespace JudoVisualizer.Tests;
 
-/// <summary>Every technique in data/techniques must parse, validate and build tracks.</summary>
+/// <summary>Every technique in data/techniques must parse, validate and (if animated) build tracks.</summary>
 public class ShippedTechniqueTests
 {
     public static TheoryData<string> Files()
@@ -22,6 +22,8 @@ public class ShippedTechniqueTests
         var path = Path.Combine(AppContext.BaseDirectory, "techniques", file);
 
         var technique = TechniqueSerializer.Deserialize(File.ReadAllText(path), file);
+        if (!technique.IsAnimated)
+            return;
         var tracks = TechniqueTracks.Build(technique);
 
         Assert.NotNull(tracks.Tori.Position);

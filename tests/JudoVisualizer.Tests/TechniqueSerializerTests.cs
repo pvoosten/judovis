@@ -8,8 +8,21 @@ public class TechniqueSerializerTests
     private static string ReadTechnique(string file) =>
         File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", file));
 
+    private const string CatalogueOnly = """
+        technique_name: "Kani-basami"
+        dutch_name: "Krabschaar"
+        waza_group: "nage_waza"
+        category: "Yoko-sutemi-waza (Zijwaartse offerworp)"
+        code: "ND-48"
+        kyu_grade: 0
+        belt_color: { name: "Zwarte band", hex: "#000000" }
+        u18: false
+        source: "Kodokan nage-waza"
+        """;
+
     private const string Minimal = """
         technique_name: "Test"
+        waza_group: "nage_waza"
         kyu_grade: 6
         belt_color: { name: "Witte band", hex: "#FFFFFF" }
         duration_seconds: 1.0
@@ -26,6 +39,8 @@ public class TechniqueSerializerTests
         Assert.Equal("Ippon Seoi-nage", t.TechniqueName);
         Assert.Equal("T1", t.Code);
         Assert.Equal(5, t.KyuGrade);
+        Assert.Equal(WazaGroups.Nage, t.WazaGroup);
+        Assert.True(t.IsAnimated);
         Assert.Equal("#FFD700", t.BeltColor.Hex);
         Assert.Equal(2.5f, t.DurationSeconds);
         Assert.Equal([0.0f, 0.9f, 1.6f, 2.5f], t.Keyframes.Select(k => k.Time));
@@ -63,7 +78,10 @@ public class TechniqueSerializerTests
     [InlineData("technique_name: \"Test\"", "technique_nam: \"Test\"", "line 1")]           // unknown key
     [InlineData("position: [0, 0, 0]", "position: [0, 0]", "expected [x, y, z]")]          // short vector
     [InlineData("position: [0, 0, 0]", "position: [0, a, 0]", "'a' is not a number")]
-    [InlineData("kyu_grade: 6", "kyu_grade: 7", "kyu_grade must be 1-6")]
+    [InlineData("kyu_grade: 6", "kyu_grade: 7", "kyu_grade must be 0-6")]
+    [InlineData("kyu_grade: 6", "kyu_grade: 0", "does not match kyu_grade 0 (#000000)")]
+    [InlineData("waza_group: \"nage_waza\"", "waza_group: \"nage\"", "waza_group must be one of")]
+    [InlineData("waza_group: \"nage_waza\"", "waza_group: \"\"", "waza_group must be one of")]
     [InlineData("hex: \"#FFFFFF\"", "hex: \"#FFD700\"", "does not match kyu_grade 6")]
     [InlineData("hex: \"#FFFFFF\"", "hex: \"white\"", "#RRGGBB")]
     [InlineData("duration_seconds: 1.0", "duration_seconds: 0", "duration_seconds must be > 0")]
@@ -92,6 +110,31 @@ public class TechniqueSerializerTests
 
         Assert.Contains(e.Errors, err => err.StartsWith("keyframes[1]") && err.Contains("strictly increasing"));
         Assert.Contains(e.Errors, err => err.StartsWith("keyframes[2]") && err.Contains("within 0..duration_seconds"));
+    }
+
+    [Fact]
+    public void CatalogueEntry_WithoutKeyframes_Loads()
+    {
+        var t = TechniqueSerializer.Deserialize(CatalogueOnly);
+
+        Assert.False(t.IsAnimated);
+        Assert.Equal(0, t.DurationSeconds);
+        Assert.Equal("Krabschaar", t.DutchName);
+        Assert.Equal("Kodokan nage-waza", t.Source);
+        Assert.Equal(KyuGrades.DanExtra, t.KyuGrade);
+        Assert.DoesNotContain("is_animated", TechniqueSerializer.Serialize(t));
+    }
+
+    [Fact]
+    public void U18_IsRead() =>
+        Assert.True(TechniqueSerializer.Deserialize(CatalogueOnly.Replace("u18: false", "u18: true")).U18);
+
+    [Fact]
+    public void Duration_WithoutKeyframes_Throws()
+    {
+        var e = Assert.Throws<TechniqueFormatException>(() =>
+            TechniqueSerializer.Deserialize(CatalogueOnly + "\nduration_seconds: 2.0\n"));
+        Assert.Contains(e.Errors, err => err.Contains("duration_seconds needs keyframes"));
     }
 
     [Fact]

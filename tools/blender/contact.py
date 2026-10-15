@@ -59,18 +59,30 @@ def fit_capsules(mesh="Tori_Body", percentile=80):
         points[best[0].name].append(v.co)
 
     capsules = {}
+    hip_low = min(b.head_local.z for b in bones if b.name.endswith("UpLeg")) - 0.08
     for b in bones:
         p = np.array([tuple(b.matrix_local.inverted() @ co) for co in points[b.name]])
         shape = SHAPES.get(b.name, "axial")
-        if shape == "sphere":
+        if shape == "lateral":
+            # Every vertex in the bone's height band (arms excluded): nearest-bone assignment would
+            # give the pelvis to the thighs. Radius = half the depth, ends at the width minus that.
+            low = hip_low if b.parent is None else b.head_local.z
+            band = np.array([tuple(v.co) for v in obj.data.vertices
+                             if low <= v.co.z <= b.tail_local.z and abs(v.co.x) < 0.22])
+            y0, y1 = np.percentile(band[:, 1], [8, 92])
+            half_width = float(np.percentile(np.abs(band[:, 0]), 92))
+            r = float(y1 - y0) / 2
+            w = max(half_width - r, 0.0)
+            y, z = float(y0 + y1) / 2, (low + b.tail_local.z) / 2
+            to_local = b.matrix_local.inverted()
+            ends = (to_local @ Vector((-w, y, z)), to_local @ Vector((w, y, z)))
+        elif shape == "sphere":
             centre = p.mean(axis=0)
             r = float(np.percentile(np.linalg.norm(p - centre, axis=1), percentile))
             ends = (centre, centre)
         else:
             if shape == "axial":  # bone-local Y runs from head (0) to tail (length)
                 centre, axis = np.array([0.0, 0.0, 0.0]), np.array([0.0, 1.0, 0.0])
-            elif shape == "lateral":  # across the body (local X) at the vertices' mean height/depth
-                centre, axis = p.mean(axis=0) * np.array([0.0, 1.0, 1.0]), np.array([1.0, 0.0, 0.0])
             else:  # pca
                 centre = p.mean(axis=0)
                 axis = np.linalg.svd(p - centre, full_matrices=False)[2][0]

@@ -298,4 +298,10 @@ Connect these UI elements cleanly to the JudoTechniquePlayer and TechniqueLoader
 3. Technique caption:
    - Always visible in the 3D view: shows the name of the technique currently loaded in the player
      (e.g. "Ippon Seoi-nage"), and updates as soon as another technique is selected.
+   - Also shows the current phase (e.g. "Kake (Worp)"), updated live during playback and scrubbing
+     (from the player's `KeyframeChanged` signal).
+4. Belt colour on the judoka:
+   - Tori and Uki both wear a belt in the colour of the loaded technique's kyu grade
+     (`belt_color.hex`, e.g. yellow for 5th kyu); it changes when another technique is selected.
+   - The models' belt material is named `Belt` (belt band, knot and tails); override it per model at runtime.
 

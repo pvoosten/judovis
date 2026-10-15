@@ -105,16 +105,25 @@ Coordinate convention (Godot, Y-up, metres, rotations in degrees as Euler XYZ):
   bows 45° forward. Child bones follow their parents.
 - Any value (position, rotation, bone) may be omitted from a keyframe; it is then interpolated
   between the neighbouring keyframes that set it (see Phase 3).
+- `keyframes` and `duration_seconds` are optional (both or neither): a catalogue entry without them is
+  listed greyed out ("Nog geen animatie") and shows the judoka in rest pose.
+- `waza_group`: `nage_waza` | `osaekomi_waza` | `shime_waza` | `kansetsu_waza`. `u18: true` for shime/kansetsu.
+- `code`: waza letter (N/O/S/K) + kyu (D = Dan / extra) + number in the leerlijn order, e.g. `N4-3`.
+- `kyu_grade: 0` = Dan / extra (belt hex `#000000`).
 
 ```yaml
 technique_name: "Ippon Seoi-nage"
+dutch_name: "Schouderworp aan één arm"
+waza_group: "nage_waza"
 category: "Te-waza (Handworp)"
-code: "T1"
+code: "N4-3"
 difficulty: "Medium"
-kyu_grade: 5 # 5e kyu = Geel
+kyu_grade: 4 # 4e kyu = Oranje
 belt_color:
-  name: "Gele band"
-  hex: "#FFD700"
+  name: "Oranje band"
+  hex: "#FF8C00"
+u18: false
+source: "VJF leerlijn 2015, oranje"
 duration_seconds: 2.5
 keyframes:
   - time: 0.0
@@ -192,6 +201,7 @@ keyframes:
 | 3rd Kyu   | Green Belt      | #228B22  |
 | 2nd Kyu   | Blue Belt       | #1E90FF  |
 | 1st Kyu   | Brown Belt      | #8B4513  |
+| 0 (Dan / extra) | Black Belt | #000000  |
 
 Kyu assignment follows the **Vlaamse Judofederatie (VJF) "Leerlijn voor Kyu-graden"** (versie 1.00,
 23/11/2015, in force since 01-09-2015). A technique's `kyu_grade` is the belt whose exam ("eindtermen voor
@@ -332,7 +342,17 @@ Connect these UI elements cleanly to the JudoTechniquePlayer and TechniqueLoader
    - The models' belt material is named `Belt` (belt band, knot and tails); override it per model at runtime.
 
 
-## Phase 6: Technique catalogue (VJF kyu grades) — TODO
+## Phase 6: Technique catalogue (VJF kyu grades) — DONE
+
+Status:
+- `data/techniques/` holds 101 techniques: the 46 of the VJF leerlijn + 55 Kodokan waza not in it
+  (kyu 0). All but ippon-seoi-nage are hand-written metadata-only entries (header comment says so);
+  an animating technique script overwrites them. Kinshi-waza are noted in `source`.
+- `Technique.IsAnimated`; `WazaGroups`; `KyuGrades.DanExtra`. `ShippedTechniqueTests` checks conventions
+  per file (file name = snake_case name, code scheme, u18 = shime/kansetsu), unique codes and the counts.
+- Browser: Dan / extra group last, "U18-technieken tonen" toggle (off by default), greyed non-animated
+  entries. Player: `CanPlay`; rest pose for catalogue entries. Caption shows Dutch name (+ details).
+- Dutch names (`dutch_name`) are our own descriptive translations, not an official VJF list.
 
 Goal: the browser lists as many techniques as possible, at the right kyu, before they are animated.
 

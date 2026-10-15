@@ -392,13 +392,16 @@ Steps:
 ## Phase 7: Weight and contact (authoring tools in Blender) — DONE
 
 Status (tools in `tools/blender/`; run order in a technique script: key poses -> `ease` -> `pivot` -> feet
-(`plant`/`step`) -> `shift_weight` -> `contact.resolve` -> `fall` -> `hold` -> `avoid` -> checks -> export):
+(`plant`/`step`) -> `shift_weight` -> `carry` -> `contact.resolve` -> `fall` -> `hold` -> `avoid` -> checks
+-> export):
 - `contact.py`: one capsule per deforming bone (`capsules.json`, refit with `fit_capsules()` after mesh
   changes), `check_contacts(allow)` over the whole timeline, `Allow("Tori:Right*", "Uki:Chest", tol, start,
   end)`, `separate()` (optionally along a fixed direction) and per-frame `resolve()`.
-- `motion.py`: leg IK `plant` (ankle or toe pivot with heel lift; lowers the hips when out of reach),
+- `motion.py`: leg IK `plant` (ankle or toe pivot with heel lift; lowers the hips when out of reach, or
+  with `until_lifted` lets the foot go once it cannot reach the mat: for a judoka being lifted),
   `step`, `foot_sliding`, `com`/`balance` (optionally `carrying` the other judoka), `shift_weight`, `pivot`
-  (a bone instead of the root follows a straight path), `fall` (ballistic COM), `ease`, `hold` (grip IK
+  (a bone instead of the root follows a straight path), `carry` (the carried judoka moves in the frame of
+  a carrier bone, so Uki only rises as Tori lifts him), `fall` (ballistic COM), `ease`, `hold` (grip IK
   every frame), `avoid` (per-frame arm/leg tilt search around the partner and the mat), `settle`.
 - `technique_tools.key()` keys linearly with hemisphere-consistent quaternions; `export_yaml` adds
   `inbetween: true` keyframes until Godot's lerp/slerp is within 5 mm / 1.5° of the Blender timeline.

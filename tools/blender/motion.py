@@ -104,7 +104,7 @@ def _lift_heel(toe, ankle, min_heel):
     return toe + q @ v, q
 
 
-def plant(arm, side, frame_from, frame_to, pivot="ankle", heel_lift=0.025):
+def plant(arm, side, frame_from, frame_to, pivot="ankle", heel_lift=0.025, until_lifted=False):
     """Keep `side`'s foot ("Left"/"Right") fixed on the mat from frame_from to frame_to (inclusive),
     where it is at frame_from: leg IK on every frame against the moving hips.
 
@@ -112,7 +112,11 @@ def plant(arm, side, frame_from, frame_to, pivot="ankle", heel_lift=0.025):
     foot keeps its keyed rotation, so the heel can rise (going onto the toes) or the foot can turn
     on the ball (tai-sabaki); the heel is kept at least `heel_lift` off the mat so it does not drag.
     Returns the worst distance the ankle could not reach (> 0.01 m means the hips move too far for
-    the leg)."""
+    the leg).
+
+    until_lifted=True: for a judoka who is being lifted (Uki): the foot stays on the mat only while it
+    can reach it; from the first frame it cannot, it is let go (no more keys, so the leg blends into
+    its keyed pose) instead of lowering the hips. Returns that frame (or None) in this mode."""
     scene = bpy.context.scene
     arm_obj = tt._arm(arm)
     scene.frame_set(frame_from)
@@ -125,11 +129,19 @@ def plant(arm, side, frame_from, frame_to, pivot="ankle", heel_lift=0.025):
             current = foot_matrix(arm, side)
             ankle_to_toe = arm_obj.matrix_world @ arm_obj.pose.bones[f"{side}Foot"].tail - current.translation
             ankle, lift = _lift_heel(toe, toe - ankle_to_toe, heel_lift)
-            residual, drop = reach(arm, side, ankle, lift.to_matrix() @ current.to_3x3())
+            ankle, rotation = ankle, lift.to_matrix() @ current.to_3x3()
         else:
-            residual, drop = reach(arm, side, m.translation, m.to_3x3())
-        worst = max(worst, residual)
+            ankle, rotation = m.translation, m.to_3x3()
+        if until_lifted:
+            if leg_ik(arm, side, ankle, rotation) > 0.01:
+                return f
+            drop = 0.0
+        else:
+            residual, drop = reach(arm, side, ankle, rotation)
+            worst = max(worst, residual)
         tt.key(arm, f, bones=_leg_bones(side), root=drop > 0)
+    if until_lifted:
+        return None
     if worst > 0.01:
         print(f"plant {arm} {side}: ankle out of reach by {worst * 100:.1f} cm")
     return worst
@@ -569,3 +581,56 @@ def shift_weight(arm, side, frame_from, frame_to, ramp=5, carrying=None):
         for s_, m in feet[f].items():  # lowering for the second foot may move the first
             leg_ik(arm, s_, m.translation, m.to_3x3())
         tt.key(arm, f, bones=_leg_bones("Left") + _leg_bones("Right"))
+
+
+def carry(carrier, carrier_bone, carried, pivot_bone, frame_from, frame_to):
+    """Let `carrier` move `carried` between two keys (Uki on Tori's back): the carried judoka's root
+    rotation and the position of its `pivot_bone` are interpolated in the frame of the carrier's
+    `carrier_bone` instead of in the world, so the carried judoka only rises, turns and moves as the
+    carrier does (straightening the legs, bowing, turning). The segment's timing comes from the
+    carried judoka's own keyed rotation. Keys the carried root on every frame in between.
+    Run it after the carrier's motion is final (feet, weight)."""
+    scene = bpy.context.scene
+    a, b = tt._arm(carrier), tt._arm(carried)
+
+    def frame_of_carrier():
+        return a.matrix_world @ a.pose.bones[carrier_bone].matrix
+
+    def relative():
+        c = frame_of_carrier()
+        c_rot = c.to_quaternion()
+        return (c_rot.inverted() @ b.matrix_world.to_quaternion(),
+                c.inverted() @ (b.matrix_world @ b.pose.bones[pivot_bone].head))
+
+    scene.frame_set(frame_from)
+    r0, p0 = relative()
+    q0 = b.matrix_world.to_quaternion()
+    scene.frame_set(frame_to)
+    r1, p1 = relative()
+    q1 = b.matrix_world.to_quaternion()
+    r1.make_compatible(r0)
+
+    def angle(p, q):  # sign-independent: q and -q are the same rotation
+        return 2 * math.acos(min(1.0, abs(p.dot(q))))
+
+    total = angle(q0, q1)
+    # Progress along the segment from the keyed rotation; read it for all frames before keying.
+    progress = {}
+    for f in range(frame_from + 1, frame_to):
+        scene.frame_set(f)
+        if total > 1e-3:
+            progress[f] = min(max(angle(q0, b.matrix_world.to_quaternion()) / total, 0.0), 1.0)
+        else:
+            progress[f] = (f - frame_from) / (frame_to - frame_from)
+    for f in range(frame_from + 1, frame_to):
+        scene.frame_set(f)
+        s = progress[f]
+        c = frame_of_carrier()
+        rotation = c.to_quaternion() @ r0.slerp(r1, s)
+        location = b.location.copy()
+        b.matrix_world = Matrix.Translation(location) @ rotation.to_matrix().to_4x4()
+        _update()
+        target = c @ p0.lerp(p1, s)
+        b.location += target - b.matrix_world @ b.pose.bones[pivot_bone].head
+        _update()
+        tt.key(b, f, bones=[])

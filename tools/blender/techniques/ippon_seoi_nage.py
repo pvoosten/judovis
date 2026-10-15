@@ -434,21 +434,25 @@ def shape():
     motion.ease(frame(0.0), "EASE_IN")           # kuzushi builds up
     motion.ease(frame(1.06), "EASE_IN", "QUAD")  # fast kake
     motion.ease(frame(2.2), "EASE_OUT")          # standing up after the throw
-    # Uki turns over Tori's back about the chest, not about the feet.
-    for a, b in ((0.76, 1.06), (1.06, 1.4), (1.4, 1.7)):
-        motion.pivot("Uki", "Chest", frame(a), frame(b))
+    # Uki is drawn onto Tori's back about the chest, not about the feet.
+    motion.pivot("Uki", "Chest", frame(0.76), frame(1.06))
     # Feet first; the weight shift then moves the hips over the planted feet.
     tori_feet()
     tori_weight()
-    # Where the interpolated bodies still overlap, Uki gives way: backwards while being loaded,
-    # upwards over the shoulder while being thrown.
-    contact.resolve("Uki", "Tori", frame(0.4), frame(1.06), BODY_ALLOW, direction=-facing("Tori"))
-    contact.resolve("Uki", "Tori", frame(1.06), frame(1.4), BODY_ALLOW, direction=Vector((0, 0, 1)) - facing("Tori"))
+    # From tsukuri until the throw Uki lies on Tori's back: he only rises and turns as Tori lifts him
+    # (straightening the legs, bowing, turning), so his motion follows Tori's chest.
+    for a, b in ((1.06, 1.4), (1.4, 1.7)):
+        motion.carry("Tori", "Chest", "Uki", "Chest", frame(a), frame(b))
+    # Where the interpolated bodies still overlap, Uki gives way: backwards (never upwards: only
+    # Tori lifts him) while being loaded, over the shoulder while being thrown.
+    contact.resolve("Uki", "Tori", frame(0.4), frame(1.4), BODY_ALLOW, direction=-facing("Tori"))
     contact.resolve("Uki", "Tori", frame(1.4), frame(1.7), BODY_ALLOW, direction=Vector((0, 0, 1)) + facing("Tori"))
     tori_carries_uki()
-    # Uki: pulled forward onto the toes until Tori loads him on his back.
+    # Uki: pulled forward onto the toes; from tsukuri on they stay on the mat until Tori lifts him off.
     for side in ("Left", "Right"):
         motion.plant("Uki", side, frame(0.0), frame(1.06), pivot="toe")
+        lifted = motion.plant("Uki", side, frame(1.06), frame(1.4), pivot="toe", until_lifted=True)
+        print(f"Uki's {side.lower()} foot leaves the mat at {lifted / tt.FPS if lifted else None}s")
     # Uki's flight: from the moment Tori releases the rotation until the landing.
     motion.fall("Uki", frame(1.7), frame(2.2))
     # Grips held on every frame; arms find their way around the partner's body between keyframes.
@@ -468,7 +472,7 @@ def check():
     """Print the reports the technique must pass (CLAUDE.md, phase 7)."""
     contact.print_report(contact.check_contacts(ALLOW))
     motion.print_sliding(motion.foot_sliding("Tori"), "Foot sliding Tori")
-    motion.print_sliding(motion.foot_sliding("Uki", 0, frame(1.06)), "Foot sliding Uki (on the mat)")
+    motion.print_sliding(motion.foot_sliding("Uki", 0, frame(1.4)), "Foot sliding Uki (on the mat)")
     motion.print_balance("Tori (entry)", motion.balance("Tori", 0, frame(1.06)))
     motion.print_balance("Tori (carrying Uki)", motion.balance("Tori", frame(1.06), frame(1.5), carrying="Uki"))
     motion.print_balance("Tori (throw, dynamic)", motion.balance("Tori", frame(1.5), frame(1.7), carrying="Uki"))

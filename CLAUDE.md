@@ -42,9 +42,9 @@ Conventions:
 ## Commands
 
 ```powershell
-.uild.ps1                                    # build, unit tests, asset import, headless smoke run
-.uild.ps1 -Configuration Release -Export     # ... plus Windows export to build\windows\JudoVisualizer.exe
-.uild.ps1 -SkipTests -SkipSmokeRun -Clean    # options; see Get-Help .uild.ps1 -Detailed
+.\build.ps1                                    # build, unit tests, asset import, headless smoke run
+.\build.ps1 -Configuration Release -Export     # ... plus Windows export to build\windows\JudoVisualizer.exe
+.\build.ps1 -SkipTests -SkipSmokeRun -Clean    # options; see Get-Help .\build.ps1 -Detailed
 ```
 
 Export preset "Windows Desktop" is in `export_presets.cfg` (committed; includes `data/techniques/*.yaml`).

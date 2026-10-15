@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Godot;
+using JudoVisualizer.Camera;
 using JudoVisualizer.Data;
 using JudoVisualizer.Playback;
 
@@ -14,7 +15,8 @@ namespace JudoVisualizer.Dev;
 /// Godot --path . res://scenes/dev/PosePreview.tscn -- --technique=ippon_seoi_nage
 ///       --times=0,0.6,1.2 --views=side,front --out=C:/tmp/preview
 /// </code>
-/// Views: side (+X), other_side (-X), front (-Z), back (+Z), three_quarter, top.
+/// Views: side (+X), other_side (-X), front (-Z), back (+Z), three_quarter, top, and the
+/// CameraManager modes orbit, tori_pov, uki_pov.
 /// Files are written as &lt;out&gt;/&lt;technique&gt;_&lt;time&gt;_&lt;view&gt;.png.
 /// </summary>
 public partial class PosePreview : Node
@@ -29,6 +31,14 @@ public partial class PosePreview : Node
         ["back"] = new(0.4f, 1.4f, 3.6f),
         ["three_quarter"] = new(2.6f, 2.2f, -2.0f),
         ["top"] = new(0.01f, 4.5f, 0.2f),
+    };
+
+    /// <summary>Views rendered through the <see cref="CameraManager"/> instead of a fixed position.</summary>
+    private static readonly Dictionary<string, CameraMode> CameraModes = new()
+    {
+        ["orbit"] = CameraMode.Orbit,
+        ["tori_pov"] = CameraMode.ToriPov,
+        ["uki_pov"] = CameraMode.UkiPov,
     };
 
     public override async void _Ready()
@@ -48,13 +58,23 @@ public partial class PosePreview : Node
         var player = main.GetNode<JudoTechniquePlayer>("Player");
         player.Load(TechniqueLoader.Load($"{TechniqueLoader.BuiltInDirectory}/{name}.yaml"));
         var camera = main.GetNode<Camera3D>("Camera3D");
+        var cameraManager = main.GetNode<CameraManager>("CameraManager");
 
         foreach (var time in times)
         {
             player.Seek(time);
             foreach (var view in views)
             {
-                camera.LookAtFromPosition(Views[view], Focus, view == "top" ? Vector3.Back : Vector3.Up);
+                if (CameraModes.TryGetValue(view, out var mode))
+                {
+                    cameraManager.ProcessMode = ProcessModeEnum.Inherit;
+                    cameraManager.SetMode(mode, immediate: true);
+                }
+                else
+                {
+                    cameraManager.ProcessMode = ProcessModeEnum.Disabled;
+                    camera.LookAtFromPosition(Views[view], Focus, view == "top" ? Vector3.Back : Vector3.Up);
+                }
                 await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
                 await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
                 var file = outDir.PathJoin($"{name}_{time.ToString("0.00", CultureInfo.InvariantCulture)}_{view}.png");

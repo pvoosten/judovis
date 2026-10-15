@@ -257,7 +257,18 @@ Missing bones: a keyframe does not have to list every bone. For each bone (per j
 between the nearest earlier and later keyframes that *do* list that bone. Before the first / after
 the last keyframe listing it, hold that value. A bone listed in no keyframe stays at its rest pose.
 
-## Phase 4: Dynamic Camera Perspective Manager
+## Phase 4: Dynamic Camera Perspective Manager — DONE
+
+Status:
+- `OrbitModel` (engine-independent, unit tested): fixed height, azimuth, clamped distance; `Orbit(+)` moves
+  the camera to its own right, `Approach(+)` moves closer.
+- `CameraManager` (Node in Main.tscn; exports `Camera`, `Tori`, `Uki`, orbit/transition settings):
+  `Mode`, `SetMode(mode, immediate)`, `NextMode()`, signal `ModeChanged`; glides ~0.5 s between modes.
+  Orbit looks at the (smoothed) midpoint of both judoka's hips. POV = eyes in front of the face, following
+  the Head bone. Runs after the player each frame (ProcessPriority 100).
+- Input actions (registered at runtime if missing): `camera_orbit_left/right` (←/→), `camera_closer/further`
+  (↑/↓), `camera_mode_orbit/tori/uki` (1/2/3), `camera_next_mode` (C). Mouse drag circles, wheel zooms.
+- Known limitation: when heads touch (Tsukuri), Uki's POV camera can end up inside Tori's head.
 
 Create a CameraManager C# script for Godot that manages a central Camera3D and allows seamless switching between three distinct perspectives:
 1. Tori's POV: Camera is attached to / follows Tori's head or upper body bone to experience the attacker's viewpoint.

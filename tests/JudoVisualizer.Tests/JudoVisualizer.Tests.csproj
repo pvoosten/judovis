@@ -11,6 +11,7 @@
     <Compile Include="../../src/Data/**/*.cs" Exclude="../../src/Data/TechniqueLoader.cs" LinkBase="Data" />
     <Compile Include="../../src/Playback/**/*.cs"
              Exclude="../../src/Playback/JudokaRig.cs;../../src/Playback/JudoTechniquePlayer.cs" LinkBase="Playback" />
+    <Compile Include="../../src/Camera/OrbitModel.cs" LinkBase="Camera" />
     <None Include="../../data/techniques/*.yaml" LinkBase="techniques" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Fixtures/*.yaml" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

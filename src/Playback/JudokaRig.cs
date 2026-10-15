@@ -33,8 +33,7 @@ internal sealed class JudokaRig
         _positions = tracks.Position?.Values.Select(ToVector3).ToArray() ?? [];
         _rotations = tracks.Rotation?.Values.Select(ToQuaternion).ToArray() ?? [];
 
-        _skeleton = root as Skeleton3D
-                    ?? root.FindChildren("*", nameof(Skeleton3D), true, false).OfType<Skeleton3D>().FirstOrDefault();
+        _skeleton = FindSkeleton(root);
         if (_skeleton is null)
         {
             if (tracks.Bones.Count > 0)
@@ -56,6 +55,11 @@ internal sealed class JudokaRig
                 AuthoringFrame.Inverse() * _skeleton.GetBoneGlobalRest(index).Basis.GetRotationQuaternion()));
         }
     }
+
+    /// <summary>The model's skeleton: the root itself or its first Skeleton3D descendant.</summary>
+    public static Skeleton3D? FindSkeleton(Node3D model) =>
+        model as Skeleton3D
+        ?? model.FindChildren("*", nameof(Skeleton3D), true, false).OfType<Skeleton3D>().FirstOrDefault();
 
     public void Apply(float time)
     {

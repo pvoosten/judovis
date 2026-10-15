@@ -22,6 +22,7 @@ public partial class Main : Node3D
         {
             var player = GetNode<JudoTechniquePlayer>("Player");
             player.Load(techniques[0]);
-            player.Play();        }
+            player.Play();
+        }
     }
 }

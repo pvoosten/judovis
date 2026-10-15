@@ -265,6 +265,13 @@ Create a CameraManager C# script for Godot that manages a central Camera3D and a
 3. Spectator Orbit Camera: A free-roaming orbit camera centered between Tori and Uki, controllable with mouse and keyboard to view the throw from any angle.
 Provide clean C# methods and events to trigger camera mode switches dynamically.
 
+Spectator orbit camera behaviour:
+- It stays at a fixed height above the tatami (it never goes up or down) and always looks at the
+  judoka (the point midway between Tori and Uki, following them as they move).
+- Arrow keys, relative to what you see: Left/Right circle the camera around the judoka
+  (Left = camera moves to the left around them), Up/Down move the camera closer to / further from
+  them (with a minimum and maximum distance).
+
 
 ## Phase 5: UI Controller & Kyu Grade Filtering
 

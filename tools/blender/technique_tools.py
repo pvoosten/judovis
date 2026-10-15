@@ -16,7 +16,7 @@ import math
 import re
 
 import bpy
-from mathutils import Euler, Matrix, Vector
+from mathutils import Euler, Matrix, Quaternion, Vector
 
 FPS = 50  # keyframe times map to frames as round(time * FPS)
 
@@ -179,13 +179,51 @@ def bake(arm):
         _update()
 
 
-def key(arm, frame):
-    """Key the root transform and all bone rotations at `frame`."""
+def fcurves(arm):
+    """The armature's F-curves (Blender 5 layered actions), or an empty list when not animated."""
     arm = _arm(arm)
-    arm.keyframe_insert("location", frame=frame)
-    arm.keyframe_insert("rotation_quaternion", frame=frame)
-    for pb in arm.pose.bones:
-        pb.keyframe_insert("rotation_quaternion", frame=frame)
+    ad = arm.animation_data
+    if not ad or not ad.action or not ad.action.layers:
+        return []
+    return ad.action.layers[0].strips[0].channelbag(ad.action_slot).fcurves
+
+
+def _keyed_quaternion(curves, data_path, frame):
+    """The animated quaternion at `frame`, or None if that channel has no keys yet."""
+    found = [curves.find(data_path, index=i) for i in range(4)] if curves else []
+    if not found or any(fc is None or not fc.keyframe_points for fc in found):
+        return None
+    return Quaternion([fc.evaluate(frame) for fc in found])
+
+
+def key(arm, frame, bones=None, root=True):
+    """Key the root transform and bone rotations (all, or the named `bones`) at `frame`.
+
+    Keys are linear, like the Godot player's interpolation; easing is added explicitly (ease()) and
+    baked into in-between keyframes on export. Each quaternion is flipped if needed to stay on the
+    same hemisphere as the animation around it, so Blender interpolates the short way like Godot's slerp."""
+    arm = _arm(arm)
+    names = bones if bones is not None else [pb.name for pb in arm.pose.bones]
+    curves = fcurves(arm)
+    targets = ([(arm, "rotation_quaternion")] if root else []) +               [(arm.pose.bones[b], f'pose.bones["{b}"].rotation_quaternion') for b in names]
+    for owner, path in targets:
+        ref = _keyed_quaternion(curves, path, frame)
+        if ref is not None:
+            q = owner.rotation_quaternion.copy()
+            q.make_compatible(ref)
+            owner.rotation_quaternion = q
+    if root:
+        arm.keyframe_insert("location", frame=frame)
+        arm.keyframe_insert("rotation_quaternion", frame=frame)
+    for b in names:
+        arm.pose.bones[b].keyframe_insert("rotation_quaternion", frame=frame)
+    # keyframe_insert ignores the "new interpolation" preference: set it on the new keys.
+    paths = {path for _, path in targets} | ({"location"} if root else set())
+    for fc in fcurves(arm):
+        if fc.data_path in paths:
+            for k in fc.keyframe_points:
+                if abs(k.co.x - frame) < 0.5:
+                    k.interpolation = 'LINEAR'
 
 
 # --- export ------------------------------------------------------------------------------------

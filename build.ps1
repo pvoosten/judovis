@@ -116,11 +116,16 @@ try {
     if (-not $SkipSmokeRun) {
         Invoke-Step 'Smoke run' {
             $output = Invoke-Godot @('--headless', '--quit-after', '60')
-            $loaded = @($output | Where-Object { $_ -like 'Loaded technique*' })
-            if ($loaded.Count -eq 0) {
-                throw 'Smoke run: no technique was loaded.'
+            # Main logs "Loaded <n> techniques, <m> animated:" followed by one line per animated technique.
+            $summary = $output | Where-Object { $_ -match '^Loaded (\d+) techniques, (\d+) animated' } | Select-Object -First 1
+            if (-not $summary) {
+                throw 'Smoke run: no techniques were loaded.'
             }
-            $loaded | ForEach-Object { Write-Host "    $_" }
+            if ([int]$Matches[2] -eq 0) {
+                throw "Smoke run: no animated technique was loaded ($summary)."
+            }
+            Write-Host "    $summary"
+            $output | Where-Object { $_ -match '^\s+\S+ ''.+'' \(' } | ForEach-Object { Write-Host "    $_" }
         }
     }
 

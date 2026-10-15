@@ -32,7 +32,8 @@ public partial class Main : Node3D
         GD.Print($"Loaded {techniques.Count} techniques, {animated.Count} animated:");
         foreach (var t in animated)
             GD.Print($"  {t.Code} '{t.TechniqueName}' " +
-                     $"({KyuGrades.Get(t.KyuGrade).BeltName}, {t.Keyframes.Count} keyframes, {t.DurationSeconds}s)");
+                     $"({KyuGrades.Get(t.KyuGrade).BeltName}, {t.Keyframes.Count(k => !k.Inbetween)} keyframes + " +
+                     $"{t.Keyframes.Count(k => k.Inbetween)} in-betweens, {t.DurationSeconds}s)");
         GetNode<HudController>("UI/Hud").SetTechniques(techniques);
 
         if (animated.Count > 0)

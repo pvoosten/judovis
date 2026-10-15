@@ -1,4 +1,5 @@
-"""Weight and motion for technique authoring (CLAUDE.md, phase 7): planted feet and steps.
+"""Weight and motion for technique authoring (CLAUDE.md, phase 7): planted feet and steps, centre
+of mass and balance, ballistic falls.
 
 These functions work on the keyed Blender timeline: run them in a technique script after the
 keyframe poses have been keyed (technique_tools.key), in time order. They add keys on every frame
@@ -7,6 +8,8 @@ of the range they touch; technique_tools.export_yaml bakes such frames into in-b
     motion.plant("Tori", "Left", 0, 45)        # left foot stays where it is at frame 0
     motion.step("Tori", "Right", 20, 35)       # lift, move and put down the right foot
     motion.print_sliding(motion.foot_sliding("Tori"))
+    motion.fall("Uki", 105, 125)               # Uki's centre of mass flies a ballistic path
+    motion.print_balance("Tori", motion.balance("Tori"))
 """
 import math
 
@@ -154,3 +157,180 @@ def print_sliding(report, title="Foot sliding"):
     for name, e in sorted(report.items()):
         print(f"  {name:18} slid {e['distance'] * 100:5.1f} cm, up to {e['speed']:.2f} m/s at {e['time']:.2f}s "
               f"({e['first']:.2f}-{e['last']:.2f}s)")
+
+
+# --- centre of mass, balance and falling -------------------------------------------------------
+
+G = 9.81
+
+# Segment mass (fraction of body mass) and centre of mass as a fraction from the bone's head to its
+# tail (de Leva 1996, male). Head includes the neck; the trunk is split over Hips/Spine/Chest, whose
+# centre is taken at their capsule's centre (None).
+SEGMENTS = {
+    "Head": (0.0694, 0.5), "Chest": (0.1596, None), "Spine": (0.1633, None), "Hips": (0.1117, None),
+    "LeftArm": (0.0271, 0.577), "RightArm": (0.0271, 0.577),
+    "LeftForearm": (0.0162, 0.457), "RightForearm": (0.0162, 0.457),
+    "LeftHand": (0.0061, 0.79), "RightHand": (0.0061, 0.79),
+    "LeftUpLeg": (0.1416, 0.4095), "RightUpLeg": (0.1416, 0.4095),
+    "LeftLeg": (0.0433, 0.446), "RightLeg": (0.0433, 0.446),
+    "LeftFoot": (0.0137, 0.442), "RightFoot": (0.0137, 0.442),
+}
+
+
+def com(arm):
+    """Centre of mass of a judoka in the current pose (Blender world space)."""
+    import contact
+    arm = tt._arm(arm)
+    caps = None
+    total = Vector()
+    for bone, (mass, along) in SEGMENTS.items():
+        pb = arm.pose.bones[bone]
+        if along is None:
+            caps = caps or contact.world_capsules(arm)
+            p0, p1, _ = caps[bone]
+            point = (p0 + p1) / 2
+        else:
+            point = arm.matrix_world @ pb.head.lerp(pb.tail, along)
+        total += point * mass
+    return total
+
+
+def support_points(arm, height=0.03):
+    """Points where the judoka rests on the mat (xy at z = 0): the corners of every foot whose heel or
+    toe is within `height` of the mat, and the lowest point of any other capsule touching the mat."""
+    import contact
+    arm = tt._arm(arm)
+    points = []
+    for side in ("Left", "Right"):
+        sole = sole_points(arm, side)
+        along = Vector((sole["toe"].x - sole["heel"].x, sole["toe"].y - sole["heel"].y))
+        across = Vector((-along.y, along.x)).normalized() * 0.045 if along.length > 1e-6 else Vector((0.045, 0))
+        for name in ("heel", "toe"):
+            p = sole[name]
+            if p.z < height:
+                points += [Vector((p.x, p.y)) + across, Vector((p.x, p.y)) - across]
+    for bone, (p0, p1, r) in contact.world_capsules(arm).items():
+        if bone.endswith("Foot"):
+            continue
+        low = p0 if p0.z < p1.z else p1
+        if low.z - r < height:
+            points.append(Vector((low.x, low.y)))
+    return points
+
+
+def convex_hull(points):
+    """2D convex hull (Andrew's monotone chain), counter-clockwise."""
+    pts = sorted({(round(p.x, 5), round(p.y, 5)) for p in points})
+    if len(pts) <= 2:
+        return [Vector(p) for p in pts]
+
+    def cross(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+    lower, upper = [], []
+    for p in pts:
+        while len(lower) >= 2 and cross(lower[-2], lower[-1], p) <= 0:
+            lower.pop()
+        lower.append(p)
+    for p in reversed(pts):
+        while len(upper) >= 2 and cross(upper[-2], upper[-1], p) <= 0:
+            upper.pop()
+        upper.append(p)
+    return [Vector(p) for p in lower[:-1] + upper[:-1]]
+
+
+def outside_distance(point, hull):
+    """How far a 2D point lies outside a convex polygon (0 when inside; inf without a polygon)."""
+    if not hull:
+        return math.inf
+    if len(hull) == 1:
+        return (point - hull[0]).length
+    inside, best = True, math.inf
+    for i, a in enumerate(hull):
+        b = hull[(i + 1) % len(hull)]
+        edge = b - a
+        if len(hull) > 2 and edge.x * (point.y - a.y) - edge.y * (point.x - a.x) < 0:
+            inside = False
+        t = min(max((point - a).dot(edge) / max(edge.length_squared, 1e-12), 0.0), 1.0)
+        best = min(best, (point - (a + edge * t)).length)
+    return 0.0 if inside and len(hull) > 2 else best
+
+
+def balance(arm, start=None, end=None, margin=0.0):
+    """Frames where the centre of mass (projected on the mat) lies more than `margin` outside the
+    support polygon. Returns dict(worst, time, frames=[(time, distance)]); worst = 0 when balanced."""
+    scene = bpy.context.scene
+    fps = scene.render.fps
+    result = dict(worst=0.0, time=None, frames=[])
+    for f in range(scene.frame_start if start is None else start, (scene.frame_end if end is None else end) + 1):
+        scene.frame_set(f)
+        c = com(arm)
+        d = outside_distance(Vector((c.x, c.y)), convex_hull(support_points(arm)))
+        if d > margin:
+            result["frames"].append((f / fps, d))
+            if d > result["worst"]:
+                result.update(worst=d, time=f / fps)
+    return result
+
+
+def print_balance(arm, result):
+    if not result["frames"]:
+        print(f"Balance {arm}: centre of mass always over the support polygon.")
+        return
+    times = [t for t, _ in result["frames"]]
+    worst = "no support" if math.isinf(result["worst"]) else f"{result['worst'] * 100:.1f} cm"
+    print(f"Balance {arm}: off balance in {len(times)} frame(s), {times[0]:.2f}-{times[-1]:.2f}s, "
+          f"worst {worst} at {result['time']:.2f}s")
+
+
+def fall(arm, frame_from, frame_to):
+    """Move the root so the centre of mass flies a ballistic path (gravity only) from where it is at
+    frame_from to where it is at frame_to; the keyed rotations and bone poses are kept. Keys the root
+    on every frame in between. Returns the vertical speed at frame_to (m/s, negative = downwards)."""
+    scene = bpy.context.scene
+    fps = scene.render.fps
+    arm = tt._arm(arm)
+    scene.frame_set(frame_from)
+    p0 = com(arm)
+    scene.frame_set(frame_to)
+    p1 = com(arm)
+    duration = (frame_to - frame_from) / fps
+    v0 = (p1 - p0) / duration + Vector((0, 0, 0.5 * G * duration))
+    for f in range(frame_from + 1, frame_to):
+        t = (f - frame_from) / fps
+        target = p0 + v0 * t - Vector((0, 0, 0.5 * G * t * t))
+        scene.frame_set(f)
+        arm.location += target - com(arm)
+        _update()
+        tt.key(arm, f, bones=[])
+    return v0.z - G * duration
+
+
+def first_mat_contact(arm, bones, start=None, end=None, height=0.03):
+    """Time at which each bone's capsule first comes within `height` of the mat (None = never; the
+    capsules sit ~1-2 cm inside the gi). Use it to check ukemi timing: the slapping arm should land
+    with the back."""
+    import contact
+    scene = bpy.context.scene
+    fps = scene.render.fps
+    result = {b: None for b in bones}
+    for f in range(scene.frame_start if start is None else start, (scene.frame_end if end is None else end) + 1):
+        scene.frame_set(f)
+        caps = contact.world_capsules(arm)
+        for b in bones:
+            if result[b] is None:
+                p0, p1, r = caps[b]
+                if min(p0.z, p1.z) - r < height:
+                    result[b] = f / fps
+    return result
+
+
+def settle(arm, clearance=0.015):
+    """Move the root vertically so the lowest capsule rests on the mat (its bottom `clearance` above
+    it; the gi around the capsules makes up the rest). For lying and kneeling poses; standing poses
+    use technique_tools.ground()."""
+    import contact
+    arm = tt._arm(arm)
+    lowest = min(min(p0.z, p1.z) - r for p0, p1, r in contact.world_capsules(arm).values())
+    arm.location.z += clearance - lowest
+    _update()

@@ -116,6 +116,26 @@ def aim(arm, bone, direction):
     _set_accumulated(pb, q.to_matrix() @ acc)
 
 
+def aim_at(arm, bone, world_point):
+    """Point a bone (head -> tail) at a world point (Blender space), with minimal twist."""
+    arm = _arm(arm)
+    head = arm.matrix_world @ arm.pose.bones[bone].head
+    world_dir = (Vector(world_point) - head).normalized()
+    aim(arm, bone, B2A @ arm.matrix_world.to_3x3().normalized().inverted() @ world_dir)
+
+
+def ik_point(arm, bone, world_point, chain=3, pole=None):
+    """Like ik(), but onto a world point (Blender space) instead of another judoka's bone."""
+    empty = bpy.data.objects.new("TMP_Target", None)
+    bpy.context.scene.collection.objects.link(empty)
+    empty.location = Vector(world_point)
+    _update()
+    try:
+        ik(arm, bone, empty, "", chain, pole)
+    finally:
+        bpy.data.objects.remove(empty, do_unlink=True)
+
+
 def ik(arm, bone, target_arm, target_bone, chain=3, pole=None):
     """Solve an IK chain ending in `bone` onto another bone's head, then bake it into the pose.
     pole: optional direction in frame A (relative to the chain root) the middle joint bends towards."""

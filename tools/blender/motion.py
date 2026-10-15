@@ -68,22 +68,68 @@ def leg_ik(arm, side, ankle, foot_rotation=None):
     return (arm.matrix_world @ foot.head - Vector(ankle)).length
 
 
+def reach(arm, side, ankle, foot_rotation=None, max_drop=0.08):
+    """leg_ik(), lowering the hips (root) by up to `max_drop` when the ankle is out of reach, so a
+    planted foot stays on the mat (the knees bend) instead of floating. Returns (residual, drop)."""
+    arm_obj = tt._arm(arm)
+    residual = leg_ik(arm, side, ankle, foot_rotation)
+    drop = 0.0
+    while residual > 0.003 and drop < max_drop:
+        step_down = min(residual * 1.2 + 0.002, max_drop - drop)
+        arm_obj.location.z -= step_down
+        drop += step_down
+        _update()
+        residual = leg_ik(arm, side, ankle, foot_rotation)
+    return residual, drop
+
+
 def _leg_bones(side):
     return [f"{side}UpLeg", f"{side}Leg", f"{side}Foot"]
 
 
-def plant(arm, side, frame_from, frame_to):
+def _lift_heel(toe, ankle, min_heel):
+    """Ankle position after rotating the foot about the toe (in its vertical plane) so the heel is at
+    least `min_heel` above the mat. Returns (ankle, rotation applied)."""
+    from mathutils import Quaternion
+    v = ankle - toe
+    need = min_heel + ANKLE_HEIGHT - toe.z
+    if ankle.z - ANKLE_HEIGHT >= min_heel or v.length < 1e-6:
+        return ankle, Quaternion()
+    horizontal = Vector((v.x, v.y, 0))
+    axis = horizontal.cross(Vector((0, 0, 1))).normalized()
+    angle = math.asin(max(-1.0, min(1.0, need / v.length))) - math.asin(max(-1.0, min(1.0, v.z / v.length)))
+    q = Quaternion(axis, -angle)
+    if (toe + q @ v).z < ankle.z:
+        q = Quaternion(axis, angle)
+    return toe + q @ v, q
+
+
+def plant(arm, side, frame_from, frame_to, pivot="ankle", heel_lift=0.025):
     """Keep `side`'s foot ("Left"/"Right") fixed on the mat from frame_from to frame_to (inclusive),
-    where it is at frame_from: leg IK on every frame against the moving hips. Returns the worst
-    distance the ankle could not reach (> 0.01 m means the hips move too far for the leg)."""
+    where it is at frame_from: leg IK on every frame against the moving hips.
+
+    pivot="ankle": the whole foot stays put (flat foot). pivot="toe": only the toe stays put and the
+    foot keeps its keyed rotation, so the heel can rise (going onto the toes) or the foot can turn
+    on the ball (tai-sabaki); the heel is kept at least `heel_lift` off the mat so it does not drag.
+    Returns the worst distance the ankle could not reach (> 0.01 m means the hips move too far for
+    the leg)."""
     scene = bpy.context.scene
+    arm_obj = tt._arm(arm)
     scene.frame_set(frame_from)
     m = foot_matrix(arm, side)
+    toe = arm_obj.matrix_world @ arm_obj.pose.bones[f"{side}Foot"].tail
     worst = 0.0
     for f in range(frame_from, frame_to + 1):
         scene.frame_set(f)
-        worst = max(worst, leg_ik(arm, side, m.translation, m.to_3x3()))
-        tt.key(arm, f, bones=_leg_bones(side), root=False)
+        if pivot == "toe":
+            current = foot_matrix(arm, side)
+            ankle_to_toe = arm_obj.matrix_world @ arm_obj.pose.bones[f"{side}Foot"].tail - current.translation
+            ankle, lift = _lift_heel(toe, toe - ankle_to_toe, heel_lift)
+            residual, drop = reach(arm, side, ankle, lift.to_matrix() @ current.to_3x3())
+        else:
+            residual, drop = reach(arm, side, m.translation, m.to_3x3())
+        worst = max(worst, residual)
+        tt.key(arm, f, bones=_leg_bones(side), root=drop > 0)
     if worst > 0.01:
         print(f"plant {arm} {side}: ankle out of reach by {worst * 100:.1f} cm")
     return worst
@@ -100,7 +146,8 @@ def step(arm, side, frame_from, frame_to, height=0.06):
     q0, q1 = m0.to_quaternion(), m1.to_quaternion()
     q1.make_compatible(q0)
     worst = 0.0
-    for f in range(frame_from + 1, frame_to):
+    # Key the end frame too: keys added inside the range change how frame_to evaluates.
+    for f in range(frame_from + 1, frame_to + 1):
         s = (f - frame_from) / (frame_to - frame_from)
         e = s * s * (3 - 2 * s)  # smoothstep
         pos = m0.translation.lerp(m1.translation, e) + Vector((0, 0, height * math.sin(math.pi * s)))
@@ -273,16 +320,20 @@ def outside_distance(point, hull):
     return 0.0 if inside and len(hull) > 2 else best
 
 
-def balance(arm, start=None, end=None, margin=0.0):
+def balance(arm, start=None, end=None, margin=0.0, carrying=None):
     """Frames where the centre of mass (projected on the mat) lies more than `margin` outside the
-    support polygon. Returns dict(worst, time, frames=[(time, distance)]); worst = 0 when balanced."""
+    support polygon. `carrying`: another judoka whose weight this one bears (e.g. Uki on Tori's
+    back): the combined centre of mass is checked against the support of both (Uki may still be
+    on his toes). Returns dict(worst, time,
+    frames=[(time, distance)]); worst = 0 when balanced."""
     scene = bpy.context.scene
     fps = scene.render.fps
     result = dict(worst=0.0, time=None, frames=[])
     for f in range(scene.frame_start if start is None else start, (scene.frame_end if end is None else end) + 1):
         scene.frame_set(f)
-        c = com(arm)
-        d = outside_distance(Vector((c.x, c.y)), convex_hull(support_points(arm)))
+        c = com(arm) if carrying is None else (com(arm) + com(carrying)) / 2
+        points = support_points(arm) + (support_points(carrying) if carrying else [])
+        d = outside_distance(Vector((c.x, c.y)), convex_hull(points))
         if d > margin:
             result["frames"].append((f / fps, d))
             if d > result["worst"]:
@@ -323,6 +374,37 @@ def fall(arm, frame_from, frame_to):
     return v0.z - G * duration
 
 
+def pivot(arm, bone, frame_from, frame_to):
+    """Move the root on every frame between two keys so `bone`'s head travels in a straight line
+    (with the segment's easing) between where it is at frame_from and at frame_to, instead of the
+    root. Use it when a judoka rotates a lot about a point other than the feet (Uki turning over
+    Tori's back): interpolating the root would swing the body through the partner."""
+    scene = bpy.context.scene
+    arm = tt._arm(arm)
+    scene.frame_set(frame_from)
+    p0 = arm.matrix_world @ arm.pose.bones[bone].head
+    root0 = arm.location.copy()
+    scene.frame_set(frame_to)
+    p1 = arm.matrix_world @ arm.pose.bones[bone].head
+    root1 = arm.location.copy()
+    # The keyed root's progress along its own path gives the segment's (eased) timing. Read it for
+    # all frames first: the keys added below change how the following frames evaluate.
+    span = root1 - root0
+    progress = {}
+    for f in range(frame_from + 1, frame_to):
+        scene.frame_set(f)
+        if span.length_squared > 1e-9:
+            progress[f] = (arm.location - root0).dot(span) / span.length_squared
+        else:
+            progress[f] = (f - frame_from) / (frame_to - frame_from)
+    for f in range(frame_from + 1, frame_to):
+        scene.frame_set(f)
+        target = p0.lerp(p1, min(max(progress[f], 0.0), 1.0))
+        arm.location += target - arm.matrix_world @ arm.pose.bones[bone].head
+        _update()
+        tt.key(arm, f, bones=[])
+
+
 def first_mat_contact(arm, bones, start=None, end=None, height=0.03):
     """Time at which each bone's capsule first comes within `height` of the mat (None = never; the
     capsules sit ~1-2 cm inside the gi). Use it to check ukemi timing: the slapping arm should land
@@ -351,3 +433,139 @@ def settle(arm, clearance=0.015):
     lowest = min(min(p0.z, p1.z) - r for p0, p1, r in contact.world_capsules(arm).values())
     arm.location.z += clearance - lowest
     _update()
+
+
+# --- arms ----------------------------------------------------------------------------------------
+
+def _chain(arm, bone, length):
+    pb = tt._arm(arm).pose.bones[bone]
+    names = []
+    for _ in range(length):
+        names.insert(0, pb.name)
+        pb = pb.parent
+    return names
+
+
+def hold(arm, hand, target_arm, target_bone, frame_from, frame_to, chain=3, pole=None):
+    """Keep a gripping hand on a grip bone of the other judoka on every frame (IK on the arm chain),
+    not only at the keyframes."""
+    scene = bpy.context.scene
+    bones = _chain(arm, hand, chain)
+    for f in range(frame_from, frame_to + 1):
+        scene.frame_set(f)
+        tt.ik(arm, hand, target_arm, target_bone, chain, pole)
+        tt.key(arm, f, bones=bones, root=False)
+
+
+def avoid(arm, bones, other, frame_from, frame_to, allow=(), step=12, steps=3, smooth=0.002):
+    """Per frame, tilt each of `bones` (parents first, e.g. ["RightArm", "RightForearm"]) about two
+    axes across the bone, choosing the tilt that leaves the least overlap (beyond the allowed
+    contacts) between that bone's chain and `other` or the mat; a small penalty per degree of change from the
+    previous frame keeps the motion smooth. Search: a grid of +-step*steps degrees, then refined
+    around the best. Frames without overlap and without a running tilt are left alone. Keys the
+    bones where it tilted. Returns the remaining overlap (m, summed) per frame."""
+    import contact
+    from mathutils import Quaternion
+    scene = bpy.context.scene
+    fps = scene.render.fps
+    arm_obj = tt._arm(arm)
+    chain = _descendants(arm_obj, bones[0])
+    previous = {b: (0.0, 0.0) for b in bones}
+    remaining = {}
+
+    def excess(t):
+        mine = contact.world_capsules(arm)
+        theirs = contact.world_capsules(other)
+        total = 0.0
+        for b in chain:
+            for o, c in theirs.items():
+                depth, _ = contact.penetration(mine[b], c)
+                if depth > 0:
+                    total += max(0.0, depth - contact.tolerance_for(f"{arm}:{b}", f"{other}:{o}", t, allow))
+            depth = contact.mat_penetration(mine[b])
+            if depth > 0:
+                total += max(0.0, depth - contact.tolerance_for(f"{arm}:{b}", contact.MAT, t, allow))
+        return total
+
+    def tilt(pb, base, a1, a2, u, v):
+        q = Quaternion(a1, math.radians(u)) @ Quaternion(a2, math.radians(v))
+        pb.matrix = Matrix.Translation(pb.head) @ (q.to_matrix() @ base.to_3x3()).to_4x4()
+        _update()
+
+    for f in range(frame_from, frame_to + 1):
+        scene.frame_set(f)
+        t = f / fps
+        if excess(t) == 0 and all(p == (0.0, 0.0) for p in previous.values()):
+            remaining[f] = 0.0
+            continue
+        for b in bones:
+            pb = arm_obj.pose.bones[b]
+            base = pb.matrix.copy()
+            d = (pb.tail - pb.head).normalized()
+            a1 = d.orthogonal().normalized()
+            a2 = d.cross(a1).normalized()
+            pu, pv = previous[b]
+
+            def score(u, v):
+                tilt(pb, base, a1, a2, u, v)
+                return excess(t) + smooth * (abs(u - pu) + abs(v - pv)) + 1e-5 * (abs(u) + abs(v))
+
+            grid = [i * step for i in range(-steps, steps + 1)]
+            best = min(((score(u, v), u, v) for u in grid for v in grid), key=lambda r: r[0])
+            fine = step / 3
+            best = min([best] + [(score(best[1] + du, best[2] + dv), best[1] + du, best[2] + dv)
+                                 for du in (-fine, 0, fine) for dv in (-fine, 0, fine) if du or dv],
+                       key=lambda r: r[0])
+            tilt(pb, base, a1, a2, best[1], best[2])
+            previous[b] = (best[1], best[2])
+        tt.key(arm, f, bones=bones, root=False)
+        remaining[f] = excess(t)
+    return remaining
+
+
+def _descendants(arm_obj, bone):
+    pb = arm_obj.pose.bones[bone]
+    return [pb.name] + [c.name for c in pb.children_recursive if c.bone.use_deform]
+
+
+def shift_weight(arm, side, frame_from, frame_to, ramp=5, carrying=None):
+    """Move the hips (root) so the centre of mass is over the support: `side`'s foot ("Left" /
+    "Right", the part of it on the mat: the ball when on the toes, while the other foot is in the
+    air) or both feet ("both"). `carrying`: a judoka this one carries; their combined centre of mass
+    is used and the carried judoka moves along. Eases in and out over `ramp` frames at both ends.
+    The feet stay where they are in the world (the legs are re-solved and keyed), so run it after
+    plant()/step()."""
+    scene = bpy.context.scene
+    arm_obj = tt._arm(arm)
+    carried = tt._arm(carrying) if carrying else None
+    sides = ("Left", "Right") if side == "both" else (side,)
+    targets, feet = {}, {}
+    for f in range(frame_from, frame_to + 1):
+        scene.frame_set(f)
+        grounded = [p for s_ in sides for p in sole_points(arm, s_).values() if p.z < 0.02]
+        if not grounded:
+            grounded = [foot_matrix(arm, s_).translation for s_ in sides]
+        foot = sum(grounded, Vector()) / len(grounded)
+        c = com(arm) if carried is None else (com(arm) + com(carried)) / 2
+        w = min(1.0, (f - frame_from) / ramp, (frame_to - f) / ramp) if ramp else 1.0
+        w = w * w * (3 - 2 * w)
+        offset = Vector((foot.x - c.x, foot.y - c.y, 0)) * w
+        # Absolute targets: the keys added below change how the following frames evaluate.
+        targets[f] = [(arm_obj, arm_obj.location + offset)]
+        if carried:
+            targets[f].append((carried, carried.location + offset))
+        feet[f] = {s_: foot_matrix(arm, s_) for s_ in ("Left", "Right")}
+    for f, moves in targets.items():
+        scene.frame_set(f)
+        for obj, location in moves:
+            obj.location = location
+            _update()
+            tt.key(obj, f, bones=[])
+        for s_, m in feet[f].items():
+            if m.translation.z < ANKLE_HEIGHT + 0.03:  # on the mat: keep it there
+                reach(arm, s_, m.translation, m.to_3x3())
+            else:
+                leg_ik(arm, s_, m.translation, m.to_3x3())
+        for s_, m in feet[f].items():  # lowering for the second foot may move the first
+            leg_ik(arm, s_, m.translation, m.to_3x3())
+        tt.key(arm, f, bones=_leg_bones("Left") + _leg_bones("Right"))

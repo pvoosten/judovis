@@ -389,7 +389,25 @@ Steps:
    comment says so. Move ippon_seoi_nage to kyu 4 via its technique script and re-export.
 4. Update the example YAML in section 2 (kyu 4, oranje) and this file.
 
-## Phase 7: Weight and contact (authoring tools in Blender) — TODO
+## Phase 7: Weight and contact (authoring tools in Blender) — DONE
+
+Status (tools in `tools/blender/`; run order in a technique script: key poses -> `ease` -> `pivot` -> feet
+(`plant`/`step`) -> `shift_weight` -> `contact.resolve` -> `fall` -> `hold` -> `avoid` -> checks -> export):
+- `contact.py`: one capsule per deforming bone (`capsules.json`, refit with `fit_capsules()` after mesh
+  changes), `check_contacts(allow)` over the whole timeline, `Allow("Tori:Right*", "Uki:Chest", tol, start,
+  end)`, `separate()` (optionally along a fixed direction) and per-frame `resolve()`.
+- `motion.py`: leg IK `plant` (ankle or toe pivot with heel lift; lowers the hips when out of reach),
+  `step`, `foot_sliding`, `com`/`balance` (optionally `carrying` the other judoka), `shift_weight`, `pivot`
+  (a bone instead of the root follows a straight path), `fall` (ballistic COM), `ease`, `hold` (grip IK
+  every frame), `avoid` (per-frame arm/leg tilt search around the partner and the mat), `settle`.
+- `technique_tools.key()` keys linearly with hemisphere-consistent quaternions; `export_yaml` adds
+  `inbetween: true` keyframes until Godot's lerp/slerp is within 5 mm / 1.5° of the Blender timeline.
+- Gotcha: adding keys inside a range changes how later frames evaluate; tools read everything they need
+  first, then key (see `pivot`, `shift_weight`).
+- Ippon-seoi-nage reworked (9 keyframes, ~110 in-betweens; script prints the reports). Remaining: overlaps
+  up to ~3 cm beyond tolerance (heads brushing in tsukuri/nage), Tori's feet creep a few cm, and Tori is
+  off balance for ~0.1 s at 1.2 s while lifting (Uki's centre of mass is too far behind Tori in tsukuri;
+  fix the tsukuri/kake geometry). Runs ~70 s in Blender (`avoid`).
 
 Problem: the judoka look weightless and move through each other. Decision: fix it at authoring time in
 Blender (`technique_tools.py`); Godot keeps playing keyframes. Required:

@@ -249,10 +249,13 @@ def print_report(report, title="Contact report", limit=25):
 
 # --- resolving ---------------------------------------------------------------------------------
 
-def separate(mover, other, allow=(), tolerance=TOLERANCE, horizontal=True, iterations=20):
-    """Push `mover`'s root out of `other` (current frame) along the deepest overlap until no pair
-    exceeds its tolerance. Returns the total translation (Blender space). Call it in a pose
-    function before keying, e.g. after placing Uki against Tori."""
+def separate(mover, other, allow=(), tolerance=TOLERANCE, horizontal=True, iterations=40, direction=None,
+             max_distance=0.3):
+    """Push `mover`'s root out of `other` (current frame) until no pair exceeds its tolerance: along
+    the deepest overlap, or only along `direction` (world, Blender space) when given, which is
+    safer when limbs overlap in several directions. Stops (with a warning) after `max_distance`:
+    then the pose itself needs fixing. Returns the total translation. Call it in a pose function
+    before keying, e.g. after placing Uki against Tori."""
     arm = bpy.data.objects[mover]
     t = bpy.context.scene.frame_current / bpy.context.scene.render.fps
     moved = Vector()
@@ -267,6 +270,16 @@ def separate(mover, other, allow=(), tolerance=TOLERANCE, horizontal=True, itera
                     worst, push = excess, normal
         if push is None:
             break
+        if moved.length > max_distance:
+            print(f"separate {mover}: still overlapping after {moved.length * 100:.0f} cm at {t:.2f}s")
+            break
+        if direction is not None:
+            d = Vector(direction).normalized()
+            step = d * max(min(worst, 0.02), 0.002)  # small steps: the deepest pair may change
+            arm.location += step
+            moved += step
+            bpy.context.view_layer.update()
+            continue
         if horizontal:
             push = Vector((push.x, push.y, 0))
             if push.length < 1e-6:
@@ -312,3 +325,18 @@ def hide_capsules(collection="TMP_Capsules"):
             bpy.data.objects.remove(o, do_unlink=True)
             bpy.data.meshes.remove(mesh)
         bpy.data.collections.remove(coll)
+
+
+def resolve(mover, other, frame_from, frame_to, allow=(), direction=None, tolerance=TOLERANCE):
+    """separate() on every frame of a range (interpolated poses can overlap where the keyframes do
+    not), keying `mover`'s root where it moved. Returns {frame: distance moved}."""
+    import technique_tools as tt
+    scene = bpy.context.scene
+    moved = {}
+    for f in range(frame_from, frame_to + 1):
+        scene.frame_set(f)
+        d = separate(mover, other, allow, tolerance, direction=direction)
+        if d.length > 0:
+            tt.key(mover, f, bones=[])
+            moved[f] = d.length
+    return moved

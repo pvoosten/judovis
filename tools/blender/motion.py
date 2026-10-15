@@ -5,6 +5,7 @@ These functions work on the keyed Blender timeline: run them in a technique scri
 keyframe poses have been keyed (technique_tools.key), in time order. They add keys on every frame
 of the range they touch; technique_tools.export_yaml bakes such frames into in-between keyframes.
 
+    motion.ease(30, "EASE_IN")                 # timing first: segment 30 -> next key starts slowly
     motion.plant("Tori", "Left", 0, 45)        # left foot stays where it is at frame 0
     motion.step("Tori", "Right", 20, 35)       # lift, move and put down the right foot
     motion.print_sliding(motion.foot_sliding("Tori"))
@@ -157,6 +158,22 @@ def print_sliding(report, title="Foot sliding"):
     for name, e in sorted(report.items()):
         print(f"  {name:18} slid {e['distance'] * 100:5.1f} cm, up to {e['speed']:.2f} m/s at {e['time']:.2f}s "
               f"({e['first']:.2f}-{e['last']:.2f}s)")
+
+
+# --- timing ------------------------------------------------------------------------------------
+
+def ease(frame, easing="EASE_IN_OUT", mode="SINE", judoka=("Tori", "Uki")):
+    """Ease the segment that starts at the key on `frame` (up to the next key) for every channel of
+    the judoka: easing "EASE_IN" (slow start, e.g. building up kuzushi), "EASE_OUT" (braking, e.g.
+    landing) or "EASE_IN_OUT"; mode is a Blender interpolation curve ("SINE", "QUAD", "CUBIC", ...).
+    Call it after keying the keyframe poses and before plant/step/fall, which add per-frame keys
+    inside segments. The exported YAML bakes the eased motion into in-between keyframes."""
+    for j in judoka:
+        for fc in tt.fcurves(j):
+            for k in fc.keyframe_points:
+                if abs(k.co.x - frame) < 0.5:
+                    k.interpolation = mode
+                    k.easing = easing
 
 
 # --- centre of mass, balance and falling -------------------------------------------------------

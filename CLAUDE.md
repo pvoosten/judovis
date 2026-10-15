@@ -34,6 +34,8 @@ Conventions:
 - Binary assets (`.blend`, `.glb`, images) are stored in Git LFS (see `.gitattributes`).
 - Every step is committed.
 - `src/Data/` stays free of Godot APIs (except `TechniqueLoader.cs`) so it can be unit tested with plain .NET.
+  Godot-free logic elsewhere (e.g. `KeyTrack`, `OrbitModel`, `TechniqueCatalog`) is listed file by file in
+  `tests/JudoVisualizer.Tests/JudoVisualizer.Tests.csproj`; keep Godot code in separate files.
 - Commit Godot's generated `*.uid` and `*.import` files; `.godot/`, `bin/`, `obj/` are ignored.
 - Exported builds need an export filter for non-resource files: `data/techniques/*.yaml`.
 
@@ -239,7 +241,8 @@ Integrate YamlDotNet via NuGet, write a service to read and export YAML files, a
 
 Status:
 - Engine-independent (unit tested): `KeyTrack` (per-value keys, bracketing sample, hold outside range),
-  `TechniqueTracks` (technique -> tracks per judoka; also `KeyframeIndexAt` for the phase),
+  `TechniqueTracks` (technique -> tracks per judoka; `Phases`/`KeyframeIndexAt`: the phase shown is that of
+  the keyframe nearest in time, i.e. segments run between midpoints of neighbouring keyframes),
   `PlaybackClock` (speed, reverse, loop).
 - Godot: `JudoTechniquePlayer` (Node3D; exports `Tori`, `Uki`, `Loop`, `Speed`; `Load`, `Play`, `Pause`,
   `TogglePlay`, `Stop`, `Seek`, `Step`; signals `TimeChanged`, `KeyframeChanged`, `PlayingChanged`)
@@ -284,7 +287,17 @@ Spectator orbit camera behaviour:
   them (with a minimum and maximum distance).
 
 
-## Phase 5: UI Controller & Kyu Grade Filtering
+## Phase 5: UI Controller & Kyu Grade Filtering — DONE
+
+Status (`scenes/ui/Hud.tscn` under the `UI` CanvasLayer in Main.tscn; panels build their controls in code):
+- `HudController`: wires everything to `JudoTechniquePlayer` + `CameraManager`; keys Space = play/pause,
+  `,`/`.` = frame back/forward (runtime input actions). HUD controls never take keyboard focus.
+- `TechniqueBrowser` (left): filter per kyu grade, groups 6th -> 1st kyu with belt badges; selecting loads + plays.
+- `TechniqueCaption` (top): technique name + current phase.
+- `PlaybackBar` (bottom): `PhaseTimeline` scrubber (phase bands, keyframe ticks, playhead), |< < Play > >|,
+  time, speed 0.1x-2x, Reverse, Loop, camera mode.
+- `JudokaAppearance.SetBeltColor` recolours the `Belt` material; `Main` applies the technique's belt colour.
+- Player additions: `TechniqueChanged` signal, `Phases`, `StepKeyframe(direction)`.
 
 Create a Godot UI layout (Control nodes) and a C# UI controller script:
 1. Technique Browser Sidebar:

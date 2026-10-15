@@ -80,14 +80,40 @@ public class PlaybackTests
         Assert.Null(tracks.Tori.Rotation);
     }
 
+    // Fixture keyframes: 0.0, 0.9, 1.6, 2.5 (duration 2.5) -> phase boundaries at 0.45, 1.25, 2.05.
     [Theory]
     [InlineData(0.0f, 0)]
-    [InlineData(0.89f, 0)]
+    [InlineData(0.44f, 0)]
+    [InlineData(0.45f, 1)]
     [InlineData(0.9f, 1)]
-    [InlineData(2.0f, 2)]
+    [InlineData(1.3f, 2)]
+    [InlineData(2.1f, 3)]
     [InlineData(2.5f, 3)]
-    public void KeyframeIndexAt_ReturnsActivePhase(float time, int expected) =>
+    public void KeyframeIndexAt_ReturnsNearestKeyframe(float time, int expected) =>
         Assert.Equal(expected, TechniqueTracks.Build(SampleTechnique()).KeyframeIndexAt(time));
+
+    [Fact]
+    public void Phases_CoverTheWholeTechniqueWithoutGaps()
+    {
+        var phases = TechniqueTracks.Build(SampleTechnique()).Phases;
+
+        Assert.Equal([(0f, 0.45f), (0.45f, 1.25f), (1.25f, 2.05f), (2.05f, 2.5f)],
+                     phases.Select(p => (MathF.Round(p.Start, 4), MathF.Round(p.End, 4))));
+        Assert.Equal("Tsukuri (Instap & Draai)", phases[1].Phase);
+    }
+
+    [Theory]
+    [InlineData(0.0f, 0.9f, null)]
+    [InlineData(0.5f, 0.9f, 0.0f)]
+    [InlineData(0.9f, 1.6f, 0.0f)]     // on a keyframe: step to the neighbours, not to itself
+    [InlineData(2.5f, null, 1.6f)]
+    public void KeyframeStepping(float time, float? next, float? previous)
+    {
+        var tracks = TechniqueTracks.Build(SampleTechnique());
+
+        Assert.Equal(next, tracks.NextKeyframeTime(time));
+        Assert.Equal(previous, tracks.PreviousKeyframeTime(time));
+    }
 
     [Theory]
     [InlineData(1.0f, 0.5f, 1f, false, 1.5f, false)]

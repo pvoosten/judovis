@@ -1,10 +1,11 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" uid="uid://dyv4rgjd813fd" path="res://src/Main.cs" id="1_main"]
 [ext_resource type="Script" path="res://src/Playback/JudoTechniquePlayer.cs" id="2_player"]
 [ext_resource type="PackedScene" uid="uid://b5i2r2m845rkv" path="res://assets/models/Tori.glb" id="3_tori"]
 [ext_resource type="PackedScene" uid="uid://g7hxj7y8rhkg" path="res://assets/models/Uki.glb" id="4_uki"]
 [ext_resource type="Script" path="res://src/Camera/CameraManager.cs" id="5_camera"]
+[ext_resource type="PackedScene" path="res://scenes/ui/Hud.tscn" id="6_hud"]
 
 [sub_resource type="Environment" id="Environment_main"]
 background_mode = 1
@@ -51,3 +52,9 @@ script = ExtResource("5_camera")
 Camera = NodePath("../Camera3D")
 Tori = NodePath("../Tori")
 Uki = NodePath("../Uki")
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Hud" parent="UI" node_paths=PackedStringArray("Player", "CameraManager") instance=ExtResource("6_hud")]
+Player = NodePath("../../Player")
+CameraManager = NodePath("../../CameraManager")

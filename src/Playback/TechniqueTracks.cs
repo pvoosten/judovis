@@ -52,14 +52,28 @@ public sealed class JudokaTracks
     }
 }
 
+/// <summary>
+/// The stretch of time in which a keyframe's phase is shown: from halfway after the previous
+/// keyframe to halfway before the next one (the first starts at 0, the last ends at the duration).
+/// </summary>
+public readonly record struct PhaseSegment(int KeyframeIndex, float Start, float End, string Phase);
+
 /// <summary>A <see cref="Data.Technique"/> converted into per-value animation tracks.</summary>
 public sealed class TechniqueTracks
 {
+    private const float Epsilon = 1e-4f;
+
     private TechniqueTracks(Technique technique)
     {
         Technique = technique;
         Tori = JudokaTracks.Build(technique.Keyframes, k => k.Tori);
         Uki = JudokaTracks.Build(technique.Keyframes, k => k.Uki);
+
+        var keyframes = technique.Keyframes;
+        Phases = keyframes.Select((k, i) => new PhaseSegment(i,
+            i == 0 ? 0 : (keyframes[i - 1].Time + k.Time) / 2,
+            i == keyframes.Count - 1 ? technique.DurationSeconds : (k.Time + keyframes[i + 1].Time) / 2,
+            k.Phase)).ToList();
     }
 
     public Technique Technique { get; }
@@ -67,16 +81,26 @@ public sealed class TechniqueTracks
     public JudokaTracks Uki { get; }
     public float Duration => Technique.DurationSeconds;
 
+    /// <summary>One segment per keyframe, in order, covering 0..duration.</summary>
+    public IReadOnlyList<PhaseSegment> Phases { get; }
+
     /// <param name="technique">A validated technique (see <see cref="TechniqueValidator"/>).</param>
     public static TechniqueTracks Build(Technique technique) => new(technique);
 
-    /// <summary>Index of the keyframe whose phase is active at <paramref name="time"/> (the last one at or before it).</summary>
+    /// <summary>Index of the keyframe nearest in time, whose phase is the one shown at <paramref name="time"/>.</summary>
     public int KeyframeIndexAt(float time)
     {
-        var keyframes = Technique.Keyframes;
-        var index = 0;
-        for (var i = 1; i < keyframes.Count && keyframes[i].Time <= time; i++)
-            index = i;
-        return index;
+        for (var i = Phases.Count - 1; i > 0; i--)
+            if (time >= Phases[i].Start)
+                return i;
+        return 0;
     }
+
+    /// <summary>Time of the first keyframe after <paramref name="time"/>, or null if there is none.</summary>
+    public float? NextKeyframeTime(float time) =>
+        Technique.Keyframes.Select(k => (float?)k.Time).FirstOrDefault(t => t > time + Epsilon);
+
+    /// <summary>Time of the last keyframe before <paramref name="time"/>, or null if there is none.</summary>
+    public float? PreviousKeyframeTime(float time) =>
+        Technique.Keyframes.Select(k => (float?)k.Time).LastOrDefault(t => t < time - Epsilon);
 }

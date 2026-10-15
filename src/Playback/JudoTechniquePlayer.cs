@@ -13,8 +13,11 @@ public partial class JudoTechniquePlayer : Node3D
     /// <summary>Emitted whenever the pose is updated (playing, seeking or stepping).</summary>
     [Signal] public delegate void TimeChangedEventHandler(float time);
 
-    /// <summary>Emitted when the active keyframe (and so the phase) changes.</summary>
+    /// <summary>Emitted when the shown phase changes: <paramref name="index"/> is the nearest keyframe.</summary>
     [Signal] public delegate void KeyframeChangedEventHandler(int index);
+
+    /// <summary>Emitted after <see cref="Load"/>, before the first frame is shown.</summary>
+    [Signal] public delegate void TechniqueChangedEventHandler();
 
     [Signal] public delegate void PlayingChangedEventHandler(bool playing);
 
@@ -52,8 +55,12 @@ public partial class JudoTechniquePlayer : Node3D
         Bind(Tori, nameof(Tori), _tracks.Tori);
         Bind(Uki, nameof(Uki), _tracks.Uki);
         CurrentKeyframeIndex = -1;
+        EmitSignal(SignalName.TechniqueChanged);
         Seek(0);
     }
+
+    /// <summary>Phase segments of the loaded technique (empty when nothing is loaded).</summary>
+    public IReadOnlyList<PhaseSegment> Phases => _tracks?.Phases ?? [];
 
     public void Play()
     {
@@ -95,6 +102,17 @@ public partial class JudoTechniquePlayer : Node3D
     {
         Pause();
         Seek(CurrentTime + seconds);
+    }
+
+    /// <summary>Pauses and jumps to the next (direction &gt; 0) or previous keyframe, if any.</summary>
+    public void StepKeyframe(int direction)
+    {
+        if (_tracks is null)
+            return;
+        var target = direction > 0 ? _tracks.NextKeyframeTime(CurrentTime) : _tracks.PreviousKeyframeTime(CurrentTime);
+        Pause();
+        if (target is { } t)
+            Seek(t);
     }
 
     public override void _Process(double delta)

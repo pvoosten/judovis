@@ -16,7 +16,7 @@ namespace JudoVisualizer.Dev;
 ///       --times=0,0.6,1.2 --views=side,front --out=C:/tmp/preview
 /// </code>
 /// Views: side (+X), other_side (-X), front (-Z), back (+Z), three_quarter, top, and the
-/// CameraManager modes orbit, tori_pov, uki_pov.
+/// CameraManager modes orbit, tori_pov, uki_pov. Add --ui to include the HUD.
 /// Files are written as &lt;out&gt;/&lt;technique&gt;_&lt;time&gt;_&lt;view&gt;.png.
 /// </summary>
 public partial class PosePreview : Node
@@ -55,6 +55,7 @@ public partial class PosePreview : Node
 
         var main = GD.Load<PackedScene>("res://scenes/main/Main.tscn").Instantiate<Node3D>();
         AddChild(main);
+        main.GetNode<CanvasLayer>("UI").Visible = args.ContainsKey("ui");
         var player = main.GetNode<JudoTechniquePlayer>("Player");
         player.Load(TechniqueLoader.Load($"{TechniqueLoader.BuiltInDirectory}/{name}.yaml"));
         var camera = main.GetNode<Camera3D>("Camera3D");

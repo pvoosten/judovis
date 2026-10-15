@@ -7,11 +7,13 @@
     <RootNamespace>JudoVisualizer.Tests</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <!-- Engine-independent code is compiled in directly; the excluded files need Godot. -->
+    <!-- Engine-independent code is compiled in directly. Outside src/Data (where only TechniqueLoader
+         needs Godot) the Godot-free files are listed one by one. -->
     <Compile Include="../../src/Data/**/*.cs" Exclude="../../src/Data/TechniqueLoader.cs" LinkBase="Data" />
-    <Compile Include="../../src/Playback/**/*.cs"
-             Exclude="../../src/Playback/JudokaRig.cs;../../src/Playback/JudoTechniquePlayer.cs" LinkBase="Playback" />
+    <Compile Include="../../src/Playback/KeyTrack.cs;../../src/Playback/TechniqueTracks.cs;../../src/Playback/PlaybackClock.cs"
+             LinkBase="Playback" />
     <Compile Include="../../src/Camera/OrbitModel.cs" LinkBase="Camera" />
+    <Compile Include="../../src/UI/TechniqueCatalog.cs" LinkBase="UI" />
     <None Include="../../data/techniques/*.yaml" LinkBase="techniques" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Fixtures/*.yaml" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

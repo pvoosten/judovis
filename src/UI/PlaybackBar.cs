@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Godot;
@@ -19,6 +20,7 @@ public partial class PlaybackBar : PanelContainer
 
     private JudoTechniquePlayer? _player;
     private PhaseTimeline _timeline = null!;
+    private readonly List<Button> _transport = []; // disabled for a technique without animation
     private Button _play = null!;
     private Label _time = null!;
     private OptionButton _speed = null!;
@@ -48,6 +50,7 @@ public partial class PlaybackBar : PanelContainer
         row.AddChild(_play);
         row.AddChild(Button(">", "Step one frame forward ( . )", () => _player?.Step(FrameStep)));
         row.AddChild(Button(">|", "Next keyframe", () => _player?.StepKeyframe(1)));
+        _transport.AddRange(row.GetChildren().OfType<Button>());
 
         _time = UiStyle.Label("", 14, UiStyle.Muted);
         _time.CustomMinimumSize = new Vector2(96, 0);
@@ -91,12 +94,20 @@ public partial class PlaybackBar : PanelContainer
         _loop.SetPressedNoSignal(player.Loop);
         ApplySpeed();
 
-        player.TechniqueChanged += () => _timeline.SetTechnique(
-            player.Phases, player.Technique?.Keyframes.Select(k => k.Time).ToList() ?? [], player.Duration);
+        player.TechniqueChanged += () =>
+        {
+            _timeline.SetTechnique(
+                player.Phases, player.Technique?.Keyframes.Select(k => k.Time).ToList() ?? [], player.Duration);
+            _timeline.MouseFilter = player.CanPlay ? MouseFilterEnum.Stop : MouseFilterEnum.Ignore;
+            foreach (var button in _transport)
+                button.Disabled = !player.CanPlay;
+        };
         player.TimeChanged += time =>
         {
             _timeline.SetTime(time, player.CurrentKeyframeIndex);
-            _time.Text = string.Create(CultureInfo.InvariantCulture, $"{time:0.00} / {player.Duration:0.00} s");
+            _time.Text = player.CanPlay
+                ? string.Create(CultureInfo.InvariantCulture, $"{time:0.00} / {player.Duration:0.00} s")
+                : "–";
         };
         player.PlayingChanged += playing => _play.Text = playing ? "Pause" : "Play";
 

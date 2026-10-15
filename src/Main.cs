@@ -1,3 +1,4 @@
+using System.Linq;
 using Godot;
 using JudoVisualizer.Data;
 using JudoVisualizer.Playback;
@@ -7,7 +8,7 @@ namespace JudoVisualizer;
 
 /// <summary>
 /// Entry scene: loads the technique library into the HUD, dresses the judoka in the loaded
-/// technique's belt colour and starts playing the first technique.
+/// technique's belt colour and starts playing the first animated technique.
 /// </summary>
 public partial class Main : Node3D
 {
@@ -27,14 +28,16 @@ public partial class Main : Node3D
         };
 
         var techniques = TechniqueLoader.LoadDirectory();
-        foreach (var t in techniques)
-            GD.Print($"Loaded technique {t.Code} '{t.TechniqueName}' " +
+        var animated = techniques.Where(t => t.IsAnimated).ToList();
+        GD.Print($"Loaded {techniques.Count} techniques, {animated.Count} animated:");
+        foreach (var t in animated)
+            GD.Print($"  {t.Code} '{t.TechniqueName}' " +
                      $"({KyuGrades.Get(t.KyuGrade).BeltName}, {t.Keyframes.Count} keyframes, {t.DurationSeconds}s)");
         GetNode<HudController>("UI/Hud").SetTechniques(techniques);
 
-        if (techniques.Count > 0)
+        if (animated.Count > 0)
         {
-            player.Load(techniques[0]);
+            player.Load(animated[0]);
             player.Play();
         }
     }

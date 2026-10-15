@@ -7,6 +7,8 @@ namespace JudoVisualizer.Playback;
 /// <summary>
 /// Plays a <see cref="Data.Technique"/> on the Tori and Uki models: interpolates root positions
 /// (lerp), root and bone rotations (slerp) between keyframes, and manages playback state.
+/// A technique without animation (catalogue entry) shows both judoka in rest pose at their start
+/// positions; playback calls then do nothing.
 /// </summary>
 public partial class JudoTechniquePlayer : Node3D
 {
@@ -32,10 +34,16 @@ public partial class JudoTechniquePlayer : Node3D
     /// <summary>Playback rate: 1 = real time, 0.25 = slow motion, negative = reverse.</summary>
     [Export] public float Speed { get; set; } = 1f;
 
+    // Start positions from the YAML convention: Tori at the origin facing +Z, Uki facing Tori.
+    private static readonly Vector3 UkiStart = new(0, 0, 1.2f);
+
     private TechniqueTracks? _tracks;
     private readonly List<JudokaRig> _rigs = [];
 
-    public Technique? Technique => _tracks?.Technique;
+    public Technique? Technique { get; private set; }
+
+    /// <summary>True when the loaded technique has keyframes and can be played.</summary>
+    public bool CanPlay => _tracks is not null;
     public float Duration => _tracks?.Duration ?? 0;
     public float CurrentTime { get; private set; }
     public bool IsPlaying { get; private set; }
@@ -45,18 +53,31 @@ public partial class JudoTechniquePlayer : Node3D
 
     public Keyframe? CurrentKeyframe => CurrentKeyframeIndex >= 0 ? Technique!.Keyframes[CurrentKeyframeIndex] : null;
 
-    /// <summary>Loads <paramref name="technique"/>, pauses and shows its first frame.</summary>
+    /// <summary>Loads <paramref name="technique"/>, pauses and shows its first frame (or the rest pose).</summary>
     /// <param name="technique">A validated technique, e.g. from <see cref="TechniqueLoader"/>.</param>
     public void Load(Technique technique)
     {
         Pause();
-        _tracks = TechniqueTracks.Build(technique);
+        Technique = technique;
         _rigs.Clear();
-        Bind(Tori, nameof(Tori), _tracks.Tori);
-        Bind(Uki, nameof(Uki), _tracks.Uki);
         CurrentKeyframeIndex = -1;
+        CurrentTime = 0;
+        if (technique.IsAnimated)
+        {
+            _tracks = TechniqueTracks.Build(technique);
+            Bind(Tori, nameof(Tori), _tracks.Tori);
+            Bind(Uki, nameof(Uki), _tracks.Uki);
+        }
+        else
+        {
+            _tracks = null;
+            ShowRestPose();
+        }
         EmitSignal(SignalName.TechniqueChanged);
-        Seek(0);
+        if (_tracks is null)
+            EmitSignal(SignalName.TimeChanged, 0f);
+        else
+            Seek(0);
     }
 
     /// <summary>Phase segments of the loaded technique (empty when nothing is loaded).</summary>
@@ -127,6 +148,18 @@ public partial class JudoTechniquePlayer : Node3D
     }
 
     private bool AtEnd => Speed >= 0 ? CurrentTime >= Duration : CurrentTime <= 0;
+
+    private void ShowRestPose()
+    {
+        foreach (var (model, position, yaw) in new[] { (Tori, Vector3.Zero, 0f), (Uki, UkiStart, Mathf.Pi) })
+        {
+            if (model is null)
+                continue;
+            model.Position = position;
+            model.Quaternion = new Quaternion(Vector3.Up, yaw);
+            JudokaRig.FindSkeleton(model)?.ResetBonePoses();
+        }
+    }
 
     private void Bind(Node3D? model, string role, JudokaTracks tracks)
     {

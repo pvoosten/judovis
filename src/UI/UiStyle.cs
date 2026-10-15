@@ -8,6 +8,9 @@ internal static class UiStyle
     public static readonly Color Accent = new(1f, 0.78f, 0.25f);
     public static readonly Color Muted = new(0.75f, 0.77f, 0.8f);
 
+    /// <summary>Text of things that are there but not usable yet (techniques without animation).</summary>
+    public static readonly Color Disabled = new(0.5f, 0.52f, 0.55f);
+
     /// <summary>Semi-transparent rounded panel so the 3D view stays visible behind it.</summary>
     public static StyleBoxFlat Panel() => new()
     {

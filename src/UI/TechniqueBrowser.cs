@@ -6,8 +6,9 @@ using JudoVisualizer.Data;
 namespace JudoVisualizer.UI;
 
 /// <summary>
-/// Sidebar listing the techniques grouped by kyu grade (6th kyu first), with a belt-colour badge
-/// per technique and a filter on one grade.
+/// Sidebar listing the techniques grouped by kyu grade (6th kyu first, Dan / extra last), with a
+/// belt-colour badge per technique, a filter on one grade and a toggle for the U18 techniques.
+/// Techniques without animation are greyed out but can still be selected to show their info.
 /// </summary>
 public partial class TechniqueBrowser : PanelContainer
 {
@@ -19,6 +20,7 @@ public partial class TechniqueBrowser : PanelContainer
     private IReadOnlyList<Technique> _techniques = [];
     private Technique? _selected;
     private OptionButton _filter = null!;
+    private CheckBox _showU18 = null!;
     private VBoxContainer _list = null!;
 
     public override void _Ready()
@@ -30,12 +32,21 @@ public partial class TechniqueBrowser : PanelContainer
 
         column.AddChild(UiStyle.Label("Techniques", 20));
 
+        // Item 0 = all grades, item i = KyuGrades.All[i - 1].
         _filter = UiStyle.NoFocus(new OptionButton { TooltipText = "Show one kyu grade" });
-        _filter.AddItem("All grades", 0);
+        _filter.AddItem("All grades");
         foreach (var grade in KyuGrades.All)
-            _filter.AddItem(TechniqueCatalog.Title(grade), grade.Grade);
+            _filter.AddItem(TechniqueCatalog.Title(grade));
         _filter.ItemSelected += _ => Rebuild();
         column.AddChild(_filter);
+
+        _showU18 = UiStyle.NoFocus(new CheckBox
+        {
+            Text = "U18-technieken tonen",
+            TooltipText = "Shime- en kansetsu-waza: in de VJF leerlijn extra vanaf U18",
+        });
+        _showU18.Toggled += _ => Rebuild();
+        column.AddChild(_showU18);
 
         var scroll = new ScrollContainer
         {
@@ -68,8 +79,9 @@ public partial class TechniqueBrowser : PanelContainer
             child.QueueFree();
         _buttonFor.Clear();
 
-        var grade = _filter.GetSelectedId();
-        var groups = TechniqueCatalog.Group(_techniques, grade == 0 ? null : grade);
+        var item = _filter.Selected;
+        int? grade = item > 0 ? KyuGrades.All[item - 1].Grade : null;
+        var groups = TechniqueCatalog.Group(_techniques, grade, _showU18.ButtonPressed);
         if (groups.Count == 0)
             _list.AddChild(UiStyle.Label("No techniques for this grade.", 13, UiStyle.Muted));
 
@@ -94,16 +106,21 @@ public partial class TechniqueBrowser : PanelContainer
         row.AddChild(new Control { CustomMinimumSize = new Vector2(8, 0) }); // indent under the header
         row.AddChild(UiStyle.BeltBadge(technique.BeltColor.Hex));
 
+        var tooltip = $"{technique.DutchName}\n{TechniqueCatalog.Details(technique)}";
+        if (!technique.IsAnimated)
+            tooltip += $"\n{TechniqueCatalog.NotAnimated}";
         var button = UiStyle.NoFocus(new Button
         {
-            Text = technique.TechniqueName,
-            TooltipText = $"{technique.Code} · {technique.Category} · {technique.Difficulty}",
+            Text = TechniqueCatalog.EntryLabel(technique),
+            TooltipText = tooltip.Trim(),
             ToggleMode = true,
             ButtonGroup = _buttons,
             Flat = true,
             Alignment = HorizontalAlignment.Left,
             SizeFlagsHorizontal = SizeFlags.ExpandFill,
         });
+        if (!technique.IsAnimated)
+            button.AddThemeColorOverride("font_color", UiStyle.Disabled);
         button.Pressed += () =>
         {
             _selected = technique;

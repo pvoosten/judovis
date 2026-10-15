@@ -295,4 +295,7 @@ Create a Godot UI layout (Control nodes) and a C# UI controller script:
    - Timeline slider (scrubber) displaying phase indicators (Kuzushi, Tsukuri, Kake) and current playback position.
    - Speed multiplier control (slider/buttons) supporting slow-motion (e.g. 0.1x, 0.25x, 0.5x, 1.0x, 2.0x) and reverse playback.
 Connect these UI elements cleanly to the JudoTechniquePlayer and TechniqueLoader services.
+3. Technique caption:
+   - Always visible in the 3D view: shows the name of the technique currently loaded in the player
+     (e.g. "Ippon Seoi-nage"), and updates as soon as another technique is selected.
 

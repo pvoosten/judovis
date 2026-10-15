@@ -9,6 +9,51 @@ public class PlaybackTests
     private static Technique SampleTechnique() => TechniqueSerializer.Deserialize(
         File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "sample_technique.yaml")));
 
+    // Authored keyframes at 0, 1 and 2 s with baked in-betweens at 0.5 and 1.5 s.
+    private static Technique WithInbetweens() => TechniqueSerializer.Deserialize("""
+        technique_name: "Inbetweens"
+        waza_group: "nage_waza"
+        kyu_grade: 6
+        belt_color: { name: "Wit", hex: "#FFFFFF" }
+        duration_seconds: 2.0
+        keyframes:
+          - { time: 0.0, phase: "A", tori: { position: [0, 0, 0] } }
+          - { time: 0.5, inbetween: true, tori: { position: [0.2, 0, 0] } }
+          - { time: 1.0, phase: "B", tori: { position: [1, 0, 0] } }
+          - { time: 1.5, inbetween: true, tori: { position: [1.8, 0, 0] } }
+          - { time: 2.0, phase: "C", tori: { position: [2, 0, 0] } }
+        """);
+
+    [Fact]
+    public void Inbetweens_ShapeTheMotion()
+    {
+        var position = TechniqueTracks.Build(WithInbetweens()).Tori.Position!;
+
+        Assert.Equal([0f, 0.5f, 1f, 1.5f, 2f], position.Times);
+    }
+
+    [Fact]
+    public void Inbetweens_HaveNoPhase()
+    {
+        var tracks = TechniqueTracks.Build(WithInbetweens());
+
+        Assert.Equal([(0, 0f, 0.5f, "A"), (2, 0.5f, 1.5f, "B"), (4, 1.5f, 2f, "C")],
+                     tracks.Phases.Select(p => (p.KeyframeIndex, p.Start, p.End, p.Phase)));
+        Assert.Equal([0f, 1f, 2f], tracks.AuthoredTimes);
+        Assert.Equal(0, tracks.KeyframeIndexAt(0.45f));
+        Assert.Equal(2, tracks.KeyframeIndexAt(0.6f)); // the in-between at 0.5 s is skipped
+        Assert.Equal(4, tracks.KeyframeIndexAt(1.6f));
+    }
+
+    [Fact]
+    public void KeyframeStepping_SkipsInbetweens()
+    {
+        var tracks = TechniqueTracks.Build(WithInbetweens());
+
+        Assert.Equal(1f, tracks.NextKeyframeTime(0f));
+        Assert.Equal(1f, tracks.PreviousKeyframeTime(1.6f));
+    }
+
     [Theory]
     [InlineData(-1.0f, 0, 0, 0.0f)]   // before the first key: hold it
     [InlineData(0.0f, 0, 0, 0.0f)]

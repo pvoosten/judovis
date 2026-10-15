@@ -53,8 +53,10 @@ public sealed class JudokaTracks
 }
 
 /// <summary>
-/// The stretch of time in which a keyframe's phase is shown: from halfway after the previous
-/// keyframe to halfway before the next one (the first starts at 0, the last ends at the duration).
+/// The stretch of time in which an authored keyframe's phase is shown: from halfway after the
+/// previous authored keyframe to halfway before the next one (the first starts at 0, the last ends
+/// at the duration). In-between keyframes have no segment. <see cref="KeyframeIndex"/> indexes
+/// <see cref="Technique.Keyframes"/>.
 /// </summary>
 public readonly record struct PhaseSegment(int KeyframeIndex, float Start, float End, string Phase);
 
@@ -69,11 +71,12 @@ public sealed class TechniqueTracks
         Tori = JudokaTracks.Build(technique.Keyframes, k => k.Tori);
         Uki = JudokaTracks.Build(technique.Keyframes, k => k.Uki);
 
-        var keyframes = technique.Keyframes;
-        Phases = keyframes.Select((k, i) => new PhaseSegment(i,
-            i == 0 ? 0 : (keyframes[i - 1].Time + k.Time) / 2,
-            i == keyframes.Count - 1 ? technique.DurationSeconds : (k.Time + keyframes[i + 1].Time) / 2,
-            k.Phase)).ToList();
+        var authored = technique.Keyframes.Select((k, i) => (Keyframe: k, Index: i)).Where(k => !k.Keyframe.Inbetween).ToList();
+        Phases = authored.Select((k, i) => new PhaseSegment(k.Index,
+            i == 0 ? 0 : (authored[i - 1].Keyframe.Time + k.Keyframe.Time) / 2,
+            i == authored.Count - 1 ? technique.DurationSeconds : (k.Keyframe.Time + authored[i + 1].Keyframe.Time) / 2,
+            k.Keyframe.Phase)).ToList();
+        AuthoredTimes = authored.Select(k => k.Keyframe.Time).ToList();
     }
 
     public Technique Technique { get; }
@@ -81,26 +84,32 @@ public sealed class TechniqueTracks
     public JudokaTracks Uki { get; }
     public float Duration => Technique.DurationSeconds;
 
-    /// <summary>One segment per keyframe, in order, covering 0..duration.</summary>
+    /// <summary>One segment per authored keyframe, in order, covering 0..duration.</summary>
     public IReadOnlyList<PhaseSegment> Phases { get; }
+
+    /// <summary>Times of the authored (not in-between) keyframes: timeline ticks and stepping targets.</summary>
+    public IReadOnlyList<float> AuthoredTimes { get; }
 
     /// <param name="technique">A validated technique (see <see cref="TechniqueValidator"/>).</param>
     public static TechniqueTracks Build(Technique technique) => new(technique);
 
-    /// <summary>Index of the keyframe nearest in time, whose phase is the one shown at <paramref name="time"/>.</summary>
+    /// <summary>
+    /// Index (in <see cref="Technique.Keyframes"/>) of the authored keyframe nearest in time, whose
+    /// phase is the one shown at <paramref name="time"/>.
+    /// </summary>
     public int KeyframeIndexAt(float time)
     {
         for (var i = Phases.Count - 1; i > 0; i--)
             if (time >= Phases[i].Start)
-                return i;
-        return 0;
+                return Phases[i].KeyframeIndex;
+        return Phases[0].KeyframeIndex;
     }
 
-    /// <summary>Time of the first keyframe after <paramref name="time"/>, or null if there is none.</summary>
+    /// <summary>Time of the first authored keyframe after <paramref name="time"/>, or null if there is none.</summary>
     public float? NextKeyframeTime(float time) =>
-        Technique.Keyframes.Select(k => (float?)k.Time).FirstOrDefault(t => t > time + Epsilon);
+        AuthoredTimes.Select(t => (float?)t).FirstOrDefault(t => t > time + Epsilon);
 
-    /// <summary>Time of the last keyframe before <paramref name="time"/>, or null if there is none.</summary>
+    /// <summary>Time of the last authored keyframe before <paramref name="time"/>, or null if there is none.</summary>
     public float? PreviousKeyframeTime(float time) =>
-        Technique.Keyframes.Select(k => (float?)k.Time).LastOrDefault(t => t < time - Epsilon);
+        AuthoredTimes.Select(t => (float?)t).LastOrDefault(t => t < time - Epsilon);
 }

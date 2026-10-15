@@ -113,6 +113,23 @@ public class TechniqueSerializerTests
     }
 
     [Fact]
+    public void Inbetweens_CannotBeFirstOrLastOrHaveAPhase()
+    {
+        var yaml = Minimal.Replace("- time: 0.0", "- time: 0.0\n    inbetween: true") + """
+
+              - time: 0.5
+                inbetween: true
+                phase: "Kake"
+            """;
+
+        var e = Assert.Throws<TechniqueFormatException>(() => TechniqueSerializer.Deserialize(yaml));
+
+        Assert.Contains(e.Errors, err => err.StartsWith("keyframes[0]") && err.Contains("cannot be in-betweens"));
+        Assert.Contains(e.Errors, err => err.StartsWith("keyframes[1]") && err.Contains("cannot be in-betweens"));
+        Assert.Contains(e.Errors, err => err.StartsWith("keyframes[1]") && err.Contains("no phase or description"));
+    }
+
+    [Fact]
     public void CatalogueEntry_WithoutKeyframes_Loads()
     {
         var t = TechniqueSerializer.Deserialize(CatalogueOnly);

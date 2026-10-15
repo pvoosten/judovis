@@ -59,11 +59,12 @@ public partial class PhaseTimeline : Control
         var font = GetThemeDefaultFont();
         var bandTop = LabelHeight;
 
-        foreach (var phase in _phases)
+        for (var i = 0; i < _phases.Count; i++)
         {
+            var phase = _phases[i];
             var x0 = X(phase.Start);
             var x1 = X(phase.End);
-            var color = phase.KeyframeIndex == _active ? ActiveBand : BandColors[phase.KeyframeIndex % 2];
+            var color = phase.KeyframeIndex == _active ? ActiveBand : BandColors[i % 2];
             DrawRect(new Rect2(x0, bandTop, x1 - x0, BandHeight), color);
 
             var label = TechniqueCatalog.ShortPhase(phase.Phase);

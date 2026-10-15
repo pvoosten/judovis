@@ -96,8 +96,7 @@ public partial class PlaybackBar : PanelContainer
 
         player.TechniqueChanged += () =>
         {
-            _timeline.SetTechnique(
-                player.Phases, player.Technique?.Keyframes.Select(k => k.Time).ToList() ?? [], player.Duration);
+            _timeline.SetTechnique(player.Phases, player.KeyframeTimes, player.Duration);
             _timeline.MouseFilter = player.CanPlay ? MouseFilterEnum.Stop : MouseFilterEnum.Ignore;
             foreach (var button in _transport)
                 button.Disabled = !player.CanPlay;

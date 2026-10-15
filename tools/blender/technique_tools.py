@@ -233,28 +233,91 @@ def _num(x, digits):
     return 0.0 if x == 0 else x
 
 
+# Largest difference allowed between the Blender timeline and Godot's interpolation of the exported
+# keyframes (lerp positions, slerp rotations) before an in-between keyframe is added.
+INBETWEEN_POSITION_TOLERANCE = 0.005  # m
+INBETWEEN_ANGLE_TOLERANCE = 1.5       # degrees
+
+
+def _sample_frame(judoka):
+    """{role: (godot position, godot root rotation quaternion, {bone: delta quaternion})} now."""
+    frame = {}
+    for role, name in judoka:
+        arm = _arm(name)
+        w = arm.matrix_world
+        r = B2G @ w.to_3x3().normalized() @ B2G.transposed()
+        frame[role] = (B2G @ w.translation, r.to_quaternion(),
+                       {b: delta(arm.pose.bones[b]).to_quaternion() for b in POSABLE})
+    return frame
+
+
+def _angle(q0, q1):
+    return math.degrees(2 * math.acos(min(1.0, abs(q0.dot(q1)))))
+
+
+def _interpolation_error(samples, f, k0, k1):
+    """How far Godot's interpolation between frames k0 and k1 is from the timeline at frame f,
+    relative to the tolerances (> 1 = needs an in-between)."""
+    w = (f - k0) / (k1 - k0)
+    worst = 0.0
+    for role, (pos, rot_, bones) in samples[f].items():
+        p0, r0, b0 = samples[k0][role]
+        p1, r1, b1 = samples[k1][role]
+        worst = max(worst, (p0.lerp(p1, w) - pos).length / INBETWEEN_POSITION_TOLERANCE,
+                    _angle(r0.slerp(r1, w), rot_) / INBETWEEN_ANGLE_TOLERANCE)
+        for b, q in bones.items():
+            worst = max(worst, _angle(b0[b].slerp(b1[b], w), q) / INBETWEEN_ANGLE_TOLERANCE)
+    return worst
+
+
+def _inbetween_frames(samples, keys):
+    """Greedily add the frame where Godot's interpolation is furthest off until all are within tolerance."""
+    keys = sorted(keys)
+
+    def worst_in(k0, k1):
+        best = (0.0, None)
+        for f in range(k0 + 1, k1):
+            e = _interpolation_error(samples, f, k0, k1)
+            if e > best[0]:
+                best = (e, f)
+        return best
+
+    segments = {(k0, k1): worst_in(k0, k1) for k0, k1 in zip(keys, keys[1:])}
+    while True:
+        (k0, k1), (error, f) = max(segments.items(), key=lambda kv: kv[1][0])
+        if error <= 1.0:
+            return sorted(set(keys))
+        del segments[(k0, k1)]
+        segments[(k0, f)] = worst_in(k0, f)
+        segments[(f, k1)] = worst_in(f, k1)
+        keys.append(f)
+
+
 def export_yaml(path, meta, keyframes, judoka=(("tori", "Tori"), ("uki", "Uki"))):
-    """Sample the keyed poses at each keyframe and write technique YAML.
+    """Sample the Blender timeline and write technique YAML: the authored keyframes plus in-between
+    keyframes (inbetween: true) wherever Godot's linear interpolation of them would differ from the
+    timeline (easing, planted feet, falls) by more than the INBETWEEN_* tolerances.
 
     meta: dict with technique_name, dutch_name, waza_group, category, code, difficulty, kyu_grade,
           belt_name, belt_hex, u18 (optional, default False), source, duration_seconds.
           keyframes: [dict(time, phase, description)].
     Bones that never leave the rest pose are omitted; others are written in every keyframe."""
     scene = bpy.context.scene
-    samples = []
-    for kf in keyframes:
-        scene.frame_set(round(kf["time"] * FPS))
-        frame = {}
-        for role, name in judoka:
-            arm = _arm(name)
-            w = arm.matrix_world
-            p = B2G @ w.translation
-            r = B2G @ w.to_3x3().normalized() @ B2G.transposed()
-            frame[role] = (tuple(_num(x, 3) for x in p), tuple(_num(x, 1) for x in godot_euler(r)),
-                           {b: tuple(_num(x, 1) for x in godot_euler(delta(arm.pose.bones[b]))) for b in POSABLE})
-        samples.append(frame)
+    end = round(meta["duration_seconds"] * FPS)
+    samples = {}
+    for f in range(0, end + 1):
+        scene.frame_set(f)
+        samples[f] = _sample_frame(judoka)
+    authored = {round(kf["time"] * FPS): kf for kf in keyframes}
+    frames = _inbetween_frames(samples, authored)
 
-    used = {role: [b for b in POSABLE if any(any(abs(a) >= 0.1 for a in s[role][2][b]) for s in samples)]
+    def values(f, role):
+        pos, rot_, bones = samples[f][role]
+        return (tuple(_num(x, 3) for x in pos), tuple(_num(x, 1) for x in godot_euler(rot_.to_matrix())),
+                {b: tuple(_num(x, 1) for x in godot_euler(q.to_matrix())) for b, q in bones.items()})
+
+    rows = {f: {role: values(f, role) for role, _ in judoka} for f in frames}
+    used = {role: [b for b in POSABLE if any(any(abs(a) >= 0.1 for a in r[role][2][b]) for r in rows.values())]
             for role, _ in judoka}
 
     def vec(v):
@@ -275,12 +338,16 @@ def export_yaml(path, meta, keyframes, judoka=(("tori", "Tori"), ("uki", "Uki"))
              f'source: "{meta["source"]}"',
              f'duration_seconds: {meta["duration_seconds"]}',
              "keyframes:"]
-    for kf, s in zip(keyframes, samples):
-        lines += [f'  - time: {kf["time"]}',
-                  f'    phase: "{kf["phase"]}"',
-                  f'    description: "{kf["description"]}"']
+    for f in frames:
+        kf = authored.get(f)
+        if kf:
+            lines += [f'  - time: {kf["time"]}',
+                      f'    phase: "{kf["phase"]}"',
+                      f'    description: "{kf["description"]}"']
+        else:
+            lines += [f"  - time: {round(f / FPS, 4)}", "    inbetween: true"]
         for role, _ in judoka:
-            pos, rot_, bones = s[role]
+            pos, rot_, bones = rows[f][role]
             lines += [f"    {role}:", f"      position: {vec(pos)}", f"      rotation: {vec(rot_)}"]
             if used[role]:
                 lines.append("      bones:")
@@ -288,4 +355,5 @@ def export_yaml(path, meta, keyframes, judoka=(("tori", "Tori"), ("uki", "Uki"))
         lines.append("")
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(lines).rstrip() + "\n")
+    print(f"Exported {path}: {len(authored)} keyframes + {len(frames) - len(authored)} in-betweens")
     return path

@@ -46,6 +46,10 @@ public static class TechniqueValidator
                 errors.Add($"{where}: time must be within 0..duration_seconds ({t.DurationSeconds}).");
             if (i > 0 && k.Time <= t.Keyframes[i - 1].Time)
                 errors.Add($"{where}: times must be strictly increasing.");
+            if (k.Inbetween && (i == 0 || i == t.Keyframes.Count - 1))
+                errors.Add($"{where}: the first and last keyframe cannot be in-betweens.");
+            if (k.Inbetween && (k.Phase.Length > 0 || k.Description.Length > 0))
+                errors.Add($"{where}: an in-between has no phase or description.");
             CheckBones(errors, $"{where}.tori", k.Tori);
             CheckBones(errors, $"{where}.uki", k.Uki);
         }

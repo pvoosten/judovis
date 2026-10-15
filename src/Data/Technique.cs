@@ -81,8 +81,15 @@ public sealed class Keyframe
     /// <summary>Seconds from the start of the technique.</summary>
     public float Time { get; set; }
 
-    /// <summary>e.g. "Kuzushi", "Tsukuri", "Kake".</summary>
+    /// <summary>e.g. "Kuzushi", "Tsukuri", "Kake". Empty for in-betweens.</summary>
     public string Phase { get; set; } = "";
+
+    /// <summary>
+    /// Baked from the Blender timeline between authored keyframes (easing, planted feet, falls):
+    /// only refines the motion. Has no phase or description, no tick on the timeline and is skipped
+    /// by keyframe stepping.
+    /// </summary>
+    public bool Inbetween { get; set; }
 
     public string Description { get; set; } = "";
 

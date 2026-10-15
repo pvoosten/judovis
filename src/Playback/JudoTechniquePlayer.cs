@@ -48,7 +48,7 @@ public partial class JudoTechniquePlayer : Node3D
     public float CurrentTime { get; private set; }
     public bool IsPlaying { get; private set; }
 
-    /// <summary>Index of the active keyframe, or -1 when nothing is loaded.</summary>
+    /// <summary>Index (in the technique's keyframes) of the active authored keyframe, or -1 when nothing is loaded.</summary>
     public int CurrentKeyframeIndex { get; private set; } = -1;
 
     public Keyframe? CurrentKeyframe => CurrentKeyframeIndex >= 0 ? Technique!.Keyframes[CurrentKeyframeIndex] : null;
@@ -82,6 +82,9 @@ public partial class JudoTechniquePlayer : Node3D
 
     /// <summary>Phase segments of the loaded technique (empty when nothing is loaded).</summary>
     public IReadOnlyList<PhaseSegment> Phases => _tracks?.Phases ?? [];
+
+    /// <summary>Times of the authored keyframes (in-betweens left out); empty when nothing is playable.</summary>
+    public IReadOnlyList<float> KeyframeTimes => _tracks?.AuthoredTimes ?? [];
 
     public void Play()
     {

@@ -18,6 +18,9 @@ namespace JudoVisualizer.Dev;
 /// Views: side (+X), other_side (-X), front (-Z), back (+Z), three_quarter, top, and the
 /// CameraManager modes orbit, tori_pov, uki_pov. Add --ui to include the HUD.
 /// Files are written as &lt;out&gt;/&lt;technique&gt;_&lt;time&gt;_&lt;view&gt;.png.
+/// --size=480x270 scales each image down. --sheet writes one contact sheet instead,
+/// &lt;out&gt;/&lt;technique&gt;_sheet.png: a row per time, a column per view, each labelled
+/// "time view" (default cell size 480x270). --zoom=1.5 moves the fixed views closer.
 /// </summary>
 public partial class PosePreview : Node
 {
@@ -52,6 +55,9 @@ public partial class PosePreview : Node
         var views = args.GetValueOrDefault("views", "side").Split(',');
         var outDir = args.GetValueOrDefault("out", "user://preview");
         DirAccess.MakeDirRecursiveAbsolute(outDir);
+        var sheet = args.ContainsKey("sheet");
+        var zoom = float.Parse(args.GetValueOrDefault("zoom", "1"), CultureInfo.InvariantCulture);
+        var size = ParseSize(args.GetValueOrDefault("size", sheet ? "480x270" : ""));
 
         var main = GD.Load<PackedScene>("res://scenes/main/Main.tscn").Instantiate<Node3D>();
         AddChild(main);
@@ -60,6 +66,9 @@ public partial class PosePreview : Node
         player.Load(TechniqueLoader.Load($"{TechniqueLoader.BuiltInDirectory}/{name}.yaml"));
         var camera = main.GetNode<Camera3D>("Camera3D");
         var cameraManager = main.GetNode<CameraManager>("CameraManager");
+        var label = AddLabel();
+        label.Visible = sheet;
+        var cells = new List<Image>();
 
         foreach (var time in times)
         {
@@ -74,15 +83,63 @@ public partial class PosePreview : Node
                 else
                 {
                     cameraManager.ProcessMode = ProcessModeEnum.Disabled;
-                    camera.LookAtFromPosition(Views[view], Focus, view == "top" ? Vector3.Back : Vector3.Up);
+                    camera.LookAtFromPosition(Focus + (Views[view] - Focus) / zoom, Focus, view == "top" ? Vector3.Back : Vector3.Up);
                 }
+                var stamp = time.ToString("0.00", CultureInfo.InvariantCulture);
+                label.Text = $"{stamp}s {view}";
                 await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
                 await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
-                var file = outDir.PathJoin($"{name}_{time.ToString("0.00", CultureInfo.InvariantCulture)}_{view}.png");
-                GetViewport().GetTexture().GetImage().SavePng(file);
+                var image = GetViewport().GetTexture().GetImage();
+                if (size is { } s)
+                    image.Resize(s.X, s.Y, Image.Interpolation.Lanczos);
+                if (sheet)
+                {
+                    cells.Add(image);
+                    continue;
+                }
+                var file = outDir.PathJoin($"{name}_{stamp}_{view}.png");
+                image.SavePng(file);
                 GD.Print($"Saved {file}");
             }
         }
+        if (sheet)
+        {
+            var file = outDir.PathJoin($"{name}_sheet.png");
+            Sheet(cells, views.Length).SavePng(file);
+            GD.Print($"Saved {file} ({times.Count} times x {views.Length} views)");
+        }
         GetTree().Quit();
+    }
+
+    private static Vector2I? ParseSize(string text)
+    {
+        var parts = text.Split('x');
+        return parts.Length == 2 ? new Vector2I(int.Parse(parts[0]), int.Parse(parts[1])) : null;
+    }
+
+    /// <summary>Caption in the top-left corner, drawn above the 3D view (and above the HUD).</summary>
+    private Label AddLabel()
+    {
+        var layer = new CanvasLayer { Layer = 100 };
+        AddChild(layer);
+        var label = new Label { Position = new Vector2(16, 8) };
+        label.AddThemeFontSizeOverride("font_size", 48);
+        label.AddThemeColorOverride("font_color", Colors.Black);
+        label.AddThemeColorOverride("font_outline_color", Colors.White);
+        label.AddThemeConstantOverride("outline_size", 12);
+        layer.AddChild(label);
+        return label;
+    }
+
+    /// <summary>Images (all the same size) in a grid of <paramref name="columns"/> columns.</summary>
+    private static Image Sheet(List<Image> cells, int columns)
+    {
+        var w = cells[0].GetWidth();
+        var h = cells[0].GetHeight();
+        var rows = (cells.Count + columns - 1) / columns;
+        var sheet = Image.CreateEmpty(columns * w, rows * h, false, cells[0].GetFormat());
+        for (var i = 0; i < cells.Count; i++)
+            sheet.BlitRect(cells[i], new Rect2I(0, 0, w, h), new Vector2I(i % columns * w, i / columns * h));
+        return sheet;
     }
 }

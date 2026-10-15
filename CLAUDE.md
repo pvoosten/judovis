@@ -108,8 +108,9 @@ A technique's kyu is the belt whose exam lists it; 6th kyu has none. Shime/kanse
 Phases 0-7 done (Blender MCP, judoka models, data model, player, cameras, HUD, catalogue, weight and
 contact tools). Ippon-seoi-nage is the only animated technique. Known issues:
 - Uki's POV camera can end up inside Tori's head when heads touch.
-- Ippon-seoi-nage: overlaps up to ~3 cm beyond tolerance (heads in tsukuri/nage), Tori's feet creep a few
-  cm, Tori briefly off balance at ~1.2 s while lifting.
+- Ippon-seoi-nage: overlaps up to ~4 cm beyond tolerance (legs at 0.9-1.1 s as Tori's left foot swings
+  back between Uki's), Tori's feet creep ~1 cm, Tori 1.3 cm off balance at the 0.44 s / 0.88 s
+  weight-shift window boundaries.
 
 ## Phase 8: Animate techniques per kyu — TODO
 

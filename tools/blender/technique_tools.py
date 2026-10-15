@@ -221,17 +221,19 @@ def key(arm, frame, bones=None, root=True):
 
     Keys are linear, like the Godot player's interpolation; easing is added explicitly (ease()) and
     baked into in-between keyframes on export. Each quaternion is flipped if needed to stay on the
-    same hemisphere as the animation around it, so Blender interpolates the short way like Godot's slerp."""
+    same hemisphere as the animation around it, so Blender interpolates the short way like Godot's slerp.
+    It is normalized first: between keys it evaluates slightly short of unit length, and keying that
+    shortened value repeatedly (re-keying the same frames) shrinks the rotation towards zero."""
     arm = _arm(arm)
     names = bones if bones is not None else [pb.name for pb in arm.pose.bones]
     curves = fcurves(arm)
     targets = ([(arm, "rotation_quaternion")] if root else []) +               [(arm.pose.bones[b], f'pose.bones["{b}"].rotation_quaternion') for b in names]
     for owner, path in targets:
+        q = owner.rotation_quaternion.normalized()
         ref = _keyed_quaternion(curves, path, frame)
         if ref is not None:
-            q = owner.rotation_quaternion.copy()
             q.make_compatible(ref)
-            owner.rotation_quaternion = q
+        owner.rotation_quaternion = q
     if root:
         arm.keyframe_insert("location", frame=frame)
         arm.keyframe_insert("rotation_quaternion", frame=frame)

@@ -62,7 +62,7 @@ Bones: Hips, Spine, Chest, Neck, Head, {Left,Right}{Shoulder,Arm,Forearm,Hand,Up
 | `pivot(arm, bone, f0, f1)` | bone (not root) moves in a straight line, e.g. Uki's Chest |
 | `plant(arm, side, f0, f1, pivot="ankle", heel_lift=0.025, until_lifted=False)` | foot fixed on the mat (`pivot="toe"`: on the ball). Returns worst unreachable dist; with `until_lifted` the frame it lets go |
 | `step(arm, side, f0, f1, height=0.06, to=None, around=None)` | lift, move, put down (`around`: arc about a world point) |
-| `shift_weight(arm, side, f0, f1, ramp=5, carrying=None)` | hips so COM is over `"Left"`/`"Right"`/`"both"`; after plant/step |
+| `shift_weight(arm, side, f0, f1, ramp=5, carrying=None)` | hips so COM is over `"Left"`/`"Right"`/`"both"`; after plant/step; `ramp` may be `(in, out)` |
 | `carry(carrier, carrier_bone, carried, pivot_bone, f0, f1)` | carried judoka moves in the carrier bone's frame |
 | `fall(arm, f0, f1)` | ballistic COM between two keys; returns landing vertical speed |
 | `hold(arm, hand, target_arm, target_bone, f0, f1, chain=3, pole=None)` | grip IK every frame |

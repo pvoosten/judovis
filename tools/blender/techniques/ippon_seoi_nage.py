@@ -34,6 +34,7 @@ META = dict(technique_name="Ippon Seoi-nage", dutch_name="Schouderworp aan één
             duration_seconds=2.6)
 
 GRIP_DISTANCE = 0.62  # between the two roots while gripping
+STANCE_WIDTH = 0.26  # between Tori's ankles in tsukuri
 
 
 def frame(t):
@@ -143,6 +144,24 @@ def uki_left_arm_on_back(out=0.12, back=0.22):
     tt.aim_at("Uki", "LeftForearm", hips - fwd * (back - 0.02) - right * (out + 0.08) - Vector((0, 0, 0.05)))
 
 
+# Where Tori's feet are (Blender space), set by the poses in keyframe order: the right toe where he
+# steps in at kuzushi (the pivot of tai-sabaki), the middle between the ankles from tsukuri on.
+TORI_FEET = {}
+
+
+def ankles_mid(j):
+    return (tt.bone_pos(j, "LeftFoot") + tt.bone_pos(j, "RightFoot")) / 2
+
+
+def stand(j, point, bone_point):
+    """Move the judoka horizontally so `bone_point` (a function of the posed judoka giving a world
+    point) lands on `point`, then put the feet on the mat."""
+    p = bone_point()
+    bpy.data.objects[j].location += Vector((point.x - p.x, point.y - p.y, 0))
+    tt._update()
+    tt.ground(j)
+
+
 def hook_right_arm(up=(0.25, 0.75, 0.6), fore=(-0.4, 0.2, -0.9)):
     """Tori's right arm clamps Uki's right upper arm in the elbow (ippon seoi grip): the elbow up
     under Uki's armpit, the forearm along Uki's upper arm. Directions in Tori's frame; the variants
@@ -215,6 +234,7 @@ def kuzushi():
     tt.rot("Tori", "Spine", (-4, 0, 0))
     arms_ready("Tori")
     tt.ground("Tori")
+    TORI_FEET["pivot"] = tt.bone_pos("Tori", "RightFoot", tail=True)
     grip()
 
 
@@ -230,7 +250,7 @@ def tai_sabaki():
     tt.place("Tori", (0.04, 0, 0.22), (0, 120, 0))
     crouch("Tori", 30)
     tt.rot("Tori", "Spine", (-10, 0, 0))
-    tt.ground("Tori")
+    stand("Tori", TORI_FEET["pivot"], lambda: tt.bone_pos("Tori", "RightFoot", tail=True))
     push_back(-facing("Uki"))
     hook_right_arm((0.35, 0.9, 0.1), (-0.5, 0.0, -0.85))
     # Uki's right arm is drawn out in front of Tori by the sleeve.
@@ -245,10 +265,11 @@ def tsukuri():
     # Tori has turned his back in, hips below Uki's belt.
     tt.place("Tori", (0, 0, 0.28), (0, 180, 0))
     crouch("Tori", 45)
-    tt.rot("Tori", "Spine", (-15, 0, 0))
+    tt.rot("Tori", "Spine", (-25, 0, 0))  # leaning forward: Uki's weight comes over Tori's feet
     tt.rot("Tori", "Chest", (-5, 0, 0))
     tt.rot("Tori", "Neck", (10, 0, 0))
-    tt.ground("Tori")
+    stand("Tori", TORI_FEET["pivot"], lambda: tt.bone_pos("Tori", "RightFoot", tail=True))
+    TORI_FEET["mid"] = ankles_mid("Tori")
     hook_right_arm()
     # Uki is drawn onto Tori's back, still on the toes.
     tt.place("Uki", (0.1, 0, 0.32), (0, 180, 0))  # too close: push_back() resolves it
@@ -271,7 +292,7 @@ def kake():
     tt.rot("Tori", "Spine", (-30, 0, 0))
     tt.rot("Tori", "Chest", (-20, 0, 0))
     tt.rot("Tori", "Neck", (-20, 0, 0))
-    tt.ground("Tori")
+    stand("Tori", TORI_FEET["mid"], lambda: ankles_mid("Tori"))
     hook_right_arm()
     tt.place("Uki", (0.1, 0.25, 0.5), (-55, 180, 15))
     tt.rot("Uki", "Spine", (-15, 0, 0))
@@ -298,7 +319,7 @@ def nage():
     tt.rot("Tori", "Spine", (-40, 0, 0))
     tt.rot("Tori", "Chest", (-22, 0, 0))
     tt.rot("Tori", "Neck", (-10, 0, 0))
-    tt.ground("Tori")
+    stand("Tori", TORI_FEET["mid"], lambda: ankles_mid("Tori"))
     hook_right_arm()
     tt.place("Uki", (0, 0, 0), (-150, 180, 20))
     tt.rot("Uki", "Spine", (-15, 0, 0))
@@ -322,7 +343,7 @@ def fall():
     tt.rot("Tori", "Spine", (-32, 0, 0))
     tt.rot("Tori", "Chest", (-10, 0, 0))
     tt.aim("Tori", "RightArm", (0.4, -0.8, -0.4))
-    tt.ground("Tori")
+    stand("Tori", TORI_FEET["mid"], lambda: ankles_mid("Tori"))
     tt.place("Uki", (0, 0, 0), (-225, 180, 10))
     tt.rot("Uki", "LeftUpLeg", (30, 0, -6))
     tt.rot("Uki", "RightUpLeg", (30, 0, 6))
@@ -340,7 +361,7 @@ def ukemi_pose(tori_bow):
     tt.rot("Tori", "Spine", (tori_bow, 0, 0))
     tt.aim("Tori", "RightArm", (0.35, -1, 0))
     tt.aim("Tori", "RightForearm", (0.15, -1, -0.3))
-    tt.ground("Tori")
+    stand("Tori", TORI_FEET["mid"], lambda: ankles_mid("Tori"))
     # Uki on the back, head towards Tori, chin tucked, slapping the mat with the left arm.
     tt.place("Uki", (0, 0, 0), (-270, 180, 5))
     tt.rot("Uki", "LeftUpLeg", (40, 0, -8))
@@ -410,7 +431,14 @@ def tori_feet():
     motion.plant("Tori", "Right", frame(0.0), frame(0.08))
     motion.step("Tori", "Right", frame(0.08), frame(0.36))
     motion.plant("Tori", "Right", frame(0.36), frame(1.06), pivot="toe")
-    motion.step("Tori", "Left", frame(0.52), frame(0.92), height=0.10)  # wide swing back
+    # The left foot swings back next to the right one (parallel, between Uki's feet): Tori's hips
+    # then come under Uki.
+    bpy.context.scene.frame_set(frame(1.06))
+    beside = motion.foot_matrix("Tori", "Right").translation - right_of("Tori") * STANCE_WIDTH
+    beside.z = motion.ANKLE_HEIGHT  # flat on the mat (the right foot is on its toes here)
+    bpy.context.scene.frame_set(frame(0.52))
+    pivot = bpy.data.objects["Tori"].matrix_world @ bpy.data.objects["Tori"].pose.bones["RightFoot"].tail
+    motion.step("Tori", "Left", frame(0.52), frame(0.92), height=0.10, to=beside, around=pivot)  # swing back
     motion.plant("Tori", "Left", frame(0.92), frame(1.06))
     for side in ("Left", "Right"):
         motion.plant("Tori", side, frame(1.06), frame(2.6))
@@ -421,12 +449,16 @@ def tori_weight():
     on his back) while loading and throwing. Keeps the planted feet in place."""
     # Contiguous windows (the shift is zero at their ends), so the hips never jump between them.
     motion.shift_weight("Tori", "Left", frame(0.0), frame(0.44), ramp=4)
-    motion.shift_weight("Tori", "Right", frame(0.44), frame(1.06), ramp=4)
+    motion.shift_weight("Tori", "Right", frame(0.44), frame(0.92), ramp=4)
+    # Feet side by side from 0.92 s: the hips over both (then shifted further with Uki on the back).
+    motion.shift_weight("Tori", "both", frame(0.92), frame(2.6), ramp=10)
 
 
 def tori_carries_uki():
-    """With Uki on his back, Tori keeps their combined centre of mass over his feet (both move)."""
-    motion.shift_weight("Tori", "both", frame(1.06), frame(1.7), ramp=4, carrying="Uki")
+    """With Uki on his back, Tori keeps their combined centre of mass over his feet (both move). Uki
+    already leans on him just before tsukuri; Tori's hips only come back after the release at 1.7 s
+    (motion.fall() then re-keys Uki's flight)."""
+    motion.shift_weight("Tori", "both", frame(1.0), frame(1.7) + 1, ramp=(3, 1), carrying="Uki")
 
 
 def shape():
@@ -439,22 +471,27 @@ def shape():
     # Feet first; the weight shift then moves the hips over the planted feet.
     tori_feet()
     tori_weight()
+    # Until tsukuri Uki stands on his own (toes): where the bodies overlap he gives way backwards.
+    contact.resolve("Uki", "Tori", frame(0.4), frame(1.06), BODY_ALLOW, direction=-facing("Tori"))
     # From tsukuri until the throw Uki lies on Tori's back: he only rises and turns as Tori lifts him
-    # (straightening the legs, bowing, turning), so his motion follows Tori's chest.
+    # (straightening the legs, bowing, turning), so his motion follows Tori's chest. Remaining overlaps:
+    # backwards (never upwards: only Tori lifts him) while loaded, over the shoulder while thrown.
     for a, b in ((1.06, 1.4), (1.4, 1.7)):
         motion.carry("Tori", "Chest", "Uki", "Chest", frame(a), frame(b))
-    # Where the interpolated bodies still overlap, Uki gives way: backwards (never upwards: only
-    # Tori lifts him) while being loaded, over the shoulder while being thrown.
-    contact.resolve("Uki", "Tori", frame(0.4), frame(1.4), BODY_ALLOW, direction=-facing("Tori"))
+    contact.resolve("Uki", "Tori", frame(1.08), frame(1.4), BODY_ALLOW, direction=-facing("Tori"))
     contact.resolve("Uki", "Tori", frame(1.4), frame(1.7), BODY_ALLOW, direction=Vector((0, 0, 1)) + facing("Tori"))
     tori_carries_uki()
-    # Uki: pulled forward onto the toes; from tsukuri on they stay on the mat until Tori lifts him off.
+    # Uki's toes stay put (his hips bend down a little where needed), until Tori has lifted him off.
+    released = []
     for side in ("Left", "Right"):
         motion.plant("Uki", side, frame(0.0), frame(1.06), pivot="toe")
         lifted = motion.plant("Uki", side, frame(1.06), frame(1.4), pivot="toe", until_lifted=True)
+        released.append(lifted or frame(1.4))
         print(f"Uki's {side.lower()} foot leaves the mat at {lifted / tt.FPS if lifted else None}s")
     # Uki's flight: from the moment Tori releases the rotation until the landing.
     motion.fall("Uki", frame(1.7), frame(2.2))
+    # Tori's hips come back after the release: Uki flies clear of his head and shoulders.
+    contact.resolve("Uki", "Tori", frame(1.7) + 1, frame(2.0), BODY_ALLOW, direction=Vector((0, 0, 1)) + facing("Tori"))
     # Grips held on every frame; arms find their way around the partner's body between keyframes.
     motion.hold("Tori", "LeftHand", "Uki", "RightSleeveGrip", frame(0.0), frame(2.6))
     motion.hold("Tori", "RightHand", "Uki", "LeftLapelGrip", frame(0.0), frame(0.4))
@@ -464,8 +501,8 @@ def shape():
         motion.avoid("Tori", ["RightArm", "RightForearm"], "Uki", frame(0.4), frame(1.9), ALLOW)
         for side in ("Right", "Left"):
             motion.avoid("Uki", [f"{side}Arm", f"{side}Forearm"], "Tori", frame(0.4), frame(2.2), ALLOW)
-    for side in ("Right", "Left"):  # Uki's legs swing past Tori's while being lifted
-        motion.avoid("Uki", [f"{side}UpLeg", f"{side}Leg"], "Tori", frame(1.06), frame(1.5), ALLOW, step=6)
+    for side in ("Right", "Left"):  # Uki's legs swing past Tori's once they are off the mat
+        motion.avoid("Uki", [f"{side}UpLeg", f"{side}Leg"], "Tori", max(released) + 1, frame(1.5), ALLOW, step=6)
 
 
 def check():
@@ -473,10 +510,12 @@ def check():
     contact.print_report(contact.check_contacts(ALLOW))
     motion.print_sliding(motion.foot_sliding("Tori"), "Foot sliding Tori")
     motion.print_sliding(motion.foot_sliding("Uki", 0, frame(1.4)), "Foot sliding Uki (on the mat)")
-    motion.print_balance("Tori (entry)", motion.balance("Tori", 0, frame(1.06)))
-    motion.print_balance("Tori (carrying Uki)", motion.balance("Tori", frame(1.06), frame(1.5), carrying="Uki"))
+    # The windows of tori_carries_uki(): Uki leans on Tori from 1.0 s (fully after its 3-frame ramp;
+    # the partly loaded frames in between are not checked) until the release at 1.7 s.
+    motion.print_balance("Tori (entry)", motion.balance("Tori", 0, frame(1.0)))
+    motion.print_balance("Tori (carrying Uki)", motion.balance("Tori", frame(1.0) + 3, frame(1.5), carrying="Uki"))
     motion.print_balance("Tori (throw, dynamic)", motion.balance("Tori", frame(1.5), frame(1.7), carrying="Uki"))
-    motion.print_balance("Tori (after the throw)", motion.balance("Tori", frame(1.7), frame(2.6)))
+    motion.print_balance("Tori (after the throw)", motion.balance("Tori", frame(1.7) + 1, frame(2.6)))
     landing = motion.first_mat_contact("Uki", ["Hips", "Spine", "LeftHand", "LeftForearm"], frame(1.5))
     print("Uki on the mat:", {b: t for b, t in landing.items()})
 

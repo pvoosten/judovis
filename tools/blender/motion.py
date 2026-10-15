@@ -68,19 +68,26 @@ def leg_ik(arm, side, ankle, foot_rotation=None):
     return (arm.matrix_world @ foot.head - Vector(ankle)).length
 
 
-def reach(arm, side, ankle, foot_rotation=None, max_drop=0.08):
-    """leg_ik(), lowering the hips (root) by up to `max_drop` when the ankle is out of reach, so a
-    planted foot stays on the mat (the knees bend) instead of floating. Returns (residual, drop)."""
+def reach(arm, side, ankle, foot_rotation=None, max_move=0.08):
+    """leg_ik(), moving the hips (root) up or down by up to `max_move` when the ankle cannot be
+    reached: down when it is too far (the knees bend more), up when the hips are so low that the
+    leg cannot fold enough. So a planted foot stays on the mat. Returns (residual, total move)."""
     arm_obj = tt._arm(arm)
+    up = arm_obj.pose.bones[f"{side}UpLeg"]
+    low = arm_obj.pose.bones[f"{side}Leg"]
+    foot = arm_obj.pose.bones[f"{side}Foot"]
+    l1, l2 = (low.head - up.head).length, (foot.head - low.head).length
     residual = leg_ik(arm, side, ankle, foot_rotation)
-    drop = 0.0
-    while residual > 0.003 and drop < max_drop:
-        step_down = min(residual * 1.2 + 0.002, max_drop - drop)
-        arm_obj.location.z -= step_down
-        drop += step_down
+    moved = 0.0
+    while residual > 0.003 and moved < max_move:
+        hip = arm_obj.matrix_world @ up.head
+        too_far = (Vector(ankle) - hip).length > l1 + l2 - 0.002
+        delta = min(residual * 1.2 + 0.002, max_move - moved)
+        arm_obj.location.z += -delta if too_far else delta
+        moved += delta
         _update()
         residual = leg_ik(arm, side, ankle, foot_rotation)
-    return residual, drop
+    return residual, moved
 
 
 def _leg_bones(side):
@@ -115,14 +122,16 @@ def plant(arm, side, frame_from, frame_to, pivot="ankle", heel_lift=0.025, until
     the leg).
 
     until_lifted=True: for a judoka who is being lifted (Uki): the foot stays on the mat only while it
-    can reach it; from the first frame it cannot, it is let go (no more keys, so the leg blends into
-    its keyed pose) instead of lowering the hips. Returns that frame (or None) in this mode."""
+    can reach it; from the first frame it cannot, the leg keeps reaching (straight) for that spot
+    instead of the hips being lowered, so the foot rises off the mat as the body is lifted. Returns
+    that frame (or None) in this mode."""
     scene = bpy.context.scene
     arm_obj = tt._arm(arm)
     scene.frame_set(frame_from)
     m = foot_matrix(arm, side)
     toe = arm_obj.matrix_world @ arm_obj.pose.bones[f"{side}Foot"].tail
     worst = 0.0
+    lifted = None
     for f in range(frame_from, frame_to + 1):
         scene.frame_set(f)
         if pivot == "toe":
@@ -133,28 +142,32 @@ def plant(arm, side, frame_from, frame_to, pivot="ankle", heel_lift=0.025, until
         else:
             ankle, rotation = m.translation, m.to_3x3()
         if until_lifted:
-            if leg_ik(arm, side, ankle, rotation) > 0.01:
-                return f
+            if leg_ik(arm, side, ankle, rotation) > 0.01 and lifted is None:
+                lifted = f
             drop = 0.0
         else:
             residual, drop = reach(arm, side, ankle, rotation)
             worst = max(worst, residual)
         tt.key(arm, f, bones=_leg_bones(side), root=drop > 0)
     if until_lifted:
-        return None
+        return lifted
     if worst > 0.01:
         print(f"plant {arm} {side}: ankle out of reach by {worst * 100:.1f} cm")
     return worst
 
 
-def step(arm, side, frame_from, frame_to, height=0.06):
-    """Move `side`'s foot from where it is at frame_from to where it is at frame_to: it lifts by
-    `height` (m), travels with ease-in/out and is put down. Returns the worst unreachable distance."""
+def step(arm, side, frame_from, frame_to, height=0.06, to=None, around=None):
+    """Move `side`'s foot from where it is at frame_from to where it is at frame_to, or to the world
+    ankle position `to` (keeping the foot's rotation at frame_to): it lifts by `height` (m), travels
+    with ease-in/out and is put down. `around`: a world point the foot swings around in an arc (the
+    pivot foot in tai-sabaki) instead of going straight. Returns the worst unreachable distance."""
     scene = bpy.context.scene
     scene.frame_set(frame_from)
     m0 = foot_matrix(arm, side)
     scene.frame_set(frame_to)
     m1 = foot_matrix(arm, side)
+    if to is not None:
+        m1 = Matrix.Translation(Vector(to)) @ m1.to_3x3().to_4x4()
     q0, q1 = m0.to_quaternion(), m1.to_quaternion()
     q1.make_compatible(q0)
     worst = 0.0
@@ -162,7 +175,16 @@ def step(arm, side, frame_from, frame_to, height=0.06):
     for f in range(frame_from + 1, frame_to + 1):
         s = (f - frame_from) / (frame_to - frame_from)
         e = s * s * (3 - 2 * s)  # smoothstep
-        pos = m0.translation.lerp(m1.translation, e) + Vector((0, 0, height * math.sin(math.pi * s)))
+        pos = m0.translation.lerp(m1.translation, e)
+        if around is not None:
+            c = Vector((around[0], around[1]))
+            v0, v1 = m0.translation.to_2d() - c, m1.translation.to_2d() - c
+            a0, a1 = math.atan2(v0.y, v0.x), math.atan2(v1.y, v1.x)
+            da = (a1 - a0 + math.pi) % (2 * math.pi) - math.pi  # the short way round
+            r = v0.length + (v1.length - v0.length) * e
+            a = a0 + da * e
+            pos = Vector((c.x + r * math.cos(a), c.y + r * math.sin(a), pos.z))
+        pos += Vector((0, 0, height * math.sin(math.pi * s)))
         scene.frame_set(f)
         worst = max(worst, leg_ik(arm, side, pos, q0.slerp(q1, e).to_matrix()))
         tt.key(arm, f, bones=_leg_bones(side), root=False)
@@ -544,13 +566,15 @@ def shift_weight(arm, side, frame_from, frame_to, ramp=5, carrying=None):
     """Move the hips (root) so the centre of mass is over the support: `side`'s foot ("Left" /
     "Right", the part of it on the mat: the ball when on the toes, while the other foot is in the
     air) or both feet ("both"). `carrying`: a judoka this one carries; their combined centre of mass
-    is used and the carried judoka moves along. Eases in and out over `ramp` frames at both ends.
+    is used and the carried judoka moves along. Eases in and out over `ramp` frames at both ends
+    (or a pair: frames to ease in, frames to ease out).
     The feet stay where they are in the world (the legs are re-solved and keyed), so run it after
     plant()/step()."""
     scene = bpy.context.scene
     arm_obj = tt._arm(arm)
     carried = tt._arm(carrying) if carrying else None
     sides = ("Left", "Right") if side == "both" else (side,)
+    ramp_in, ramp_out = ramp if isinstance(ramp, (tuple, list)) else (ramp, ramp)
     targets, feet = {}, {}
     for f in range(frame_from, frame_to + 1):
         scene.frame_set(f)
@@ -559,7 +583,7 @@ def shift_weight(arm, side, frame_from, frame_to, ramp=5, carrying=None):
             grounded = [foot_matrix(arm, s_).translation for s_ in sides]
         foot = sum(grounded, Vector()) / len(grounded)
         c = com(arm) if carried is None else (com(arm) + com(carried)) / 2
-        w = min(1.0, (f - frame_from) / ramp, (frame_to - f) / ramp) if ramp else 1.0
+        w = min(1.0, (f - frame_from) / ramp_in if ramp_in else 1.0, (frame_to - f) / ramp_out if ramp_out else 1.0)
         w = w * w * (3 - 2 * w)
         offset = Vector((foot.x - c.x, foot.y - c.y, 0)) * w
         # Absolute targets: the keys added below change how the following frames evaluate.
@@ -573,6 +597,7 @@ def shift_weight(arm, side, frame_from, frame_to, ramp=5, carrying=None):
             obj.location = location
             _update()
             tt.key(obj, f, bones=[])
+        _update()  # the new keys re-evaluate the action once: before the IK, not halfway through it
         for s_, m in feet[f].items():
             if m.translation.z < ANKLE_HEIGHT + 0.03:  # on the mat: keep it there
                 reach(arm, s_, m.translation, m.to_3x3())

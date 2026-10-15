@@ -193,7 +193,11 @@ keyframes:
 | 2nd Kyu   | Blue Belt       | #1E90FF  |
 | 1st Kyu   | Brown Belt      | #8B4513  |
 
-# TODO
+Kyu assignment follows the **Vlaamse Judofederatie (VJF) "Leerlijn voor Kyu-graden"** (versie 1.00,
+23/11/2015, in force since 01-09-2015). A technique's `kyu_grade` is the belt whose exam ("eindtermen voor
+de ... gordel") lists it, e.g. koshi-guruma = 5th kyu (yellow). 6th kyu (white) has no techniques of its own.
+Shime-/kansetsu-waza are "extra vanaf U18" in the VJF and are flagged as such. Kodokan techniques not in the
+leerlijn go into a separate group "Dan / extra" after 1st kyu.
 
 
 ## Phase 0: Blender MCP Integration Setup — DONE
@@ -327,3 +331,71 @@ Connect these UI elements cleanly to the JudoTechniquePlayer and TechniqueLoader
      (`belt_color.hex`, e.g. yellow for 5th kyu); it changes when another technique is selected.
    - The models' belt material is named `Belt` (belt band, knot and tails); override it per model at runtime.
 
+
+## Phase 6: Technique catalogue (VJF kyu grades) — TODO
+
+Goal: the browser lists as many techniques as possible, at the right kyu, before they are animated.
+
+Decisions (interview 2026-10-15):
+- Source: VJF Leerlijn voor Kyu-graden 2015 (see section 3). All technique types: nage-, osaekomi-, shime-
+  and kansetsu-waza. Shime/kansetsu get a `U18+` label and a browser toggle "U18-technieken tonen".
+- Kodokan waza not in the leerlijn (rest of the 68 nage-waza and 32 katame-waza): group "Dan / extra",
+  shown after 1st kyu with a black badge.
+- Catalogue first: every technique gets a YAML file with metadata only; animation follows in phase 8.
+  Non-animated entries are shown greyed with "nog geen animatie"; selecting one shows its info, the judoka
+  stand in rest pose and playback controls are disabled.
+- Ippon-seoi-nage moves from 5th kyu (yellow) to 4th kyu (orange), as in the leerlijn.
+
+VJF leerlijn content (number = point in the leerlijn):
+
+| Kyu (belt) | Nage-waza | Katame-waza | Extra vanaf U18 (shime / kansetsu) |
+| ---------- | --------- | ----------- | ---------------------------------- |
+| 5 (geel)   | koshi-guruma, o-soto-gari, uki-goshi, o-uchi-gari | kuzure-kesa-gatame, kami-shiho-gatame, yoko-shiho-gatame, tate-shiho-gatame | — |
+| 4 (oranje) | hiza-guruma, seoi-nage, ippon-seoi-nage, o-goshi | kesa-gatame, kuzure-kami-shiho-gatame, ushiro-kesa-gatame | — |
+| 3 (groen)  | harai-goshi, sasae-tsurikomi-ashi, ko-soto-gari, tsurikomi-goshi | kata-gatame, makura-kesa-gatame | nami-juji-jime, gyaku-juji-jime, kata-juji-jime, ude-garami, ude-hishigi-juji-gatame |
+| 2 (blauw)  | tai-otoshi, okuri-ashi-harai, uchi-mata, ko-uchi-gari | — | hadaka-jime, okuri-eri-jime, kata-ha-jime, ude-hishigi-ude-gatame, ude-hishigi-hiza-gatame, ude-hishigi-waki-gatame |
+| 1 (bruin)  | de-ashi-harai, hane-goshi, kata-guruma, uki-otoshi | — | sankaku-jime, kata-te-jime, ryo-te-jime, ude-hishigi-sankaku-gatame, ude-hishigi-hara-gatame, ude-hishigi-ashi-gatame |
+
+Steps:
+1. Schema: `keyframes` and `duration_seconds` become optional (both or neither); new fields
+   `dutch_name` (e.g. "Grote buitenwaartse maaiworp"), `waza_group` (`nage_waza` | `osaekomi_waza` |
+   `shime_waza` | `kansetsu_waza`), `u18` (bool), `source` (e.g. "VJF leerlijn 2015, geel (09)").
+   `category` keeps the sub-group (Te-waza, Koshi-waza, Ashi-waza, Ma-/Yoko-sutemi-waza, Osaekomi-waza, ...).
+   Grade "Dan / extra" = `kyu_grade: 0`, belt hex `#000000`; update `KyuGrades`, validator, serializer, tests.
+2. `TechniqueCatalog` / `TechniqueBrowser`: Dan / extra group, U18 toggle, greyed non-animated entries;
+   player + HUD handle a technique without keyframes. Update `code` scheme (e.g. N5-1 = nage, 5th kyu, nr 1).
+3. Write the ~46 VJF entries + the Kodokan extras (names checked against the Kodokan list), one YAML per
+   technique in snake_case. Metadata-only files are hand-written (no Blender script yet); the header
+   comment says so. Move ippon_seoi_nage to kyu 4 via its technique script and re-export.
+4. Update the example YAML in section 2 (kyu 4, oranje) and this file.
+
+## Phase 7: Weight and contact (authoring tools in Blender) — TODO
+
+Problem: the judoka look weightless and move through each other. Decision: fix it at authoring time in
+Blender (`technique_tools.py`); Godot keeps playing keyframes. Required:
+1. No interpenetration: collision capsules per bone (radii fitted to the mesh) for both judoka + the mat.
+   `check_contacts()` samples the whole timeline (also between keyframes, as Godot interpolates) and
+   reports penetration depth per bone pair and time; allowed contacts (grip hands on grip bones, hip against
+   belly in koshi-waza, body on mat when lying) within a small tolerance. Option to push apart automatically
+   by adjusting root position / spine.
+2. Planted feet: `plant(arm, foot, frame_from, frame_to)` keeps a supporting foot fixed on the mat (leg IK);
+   `step(...)` = lift, move, put down. Check reports foot sliding.
+3. Real fall + balance: `com(arm)` from segment masses; non-falling judoka keep their centre of mass over the
+   support polygon (reported). `fall(...)` moves Uki's COM on a ballistic path (g = 9.81) to a hard landing
+   with ukemi (arm slap), rotation consistent with the throw.
+4. Acceleration/deceleration: timing authored with Blender F-curve easing (slow build-up, fast kake,
+   braking at landing).
+5. Export: because Godot interpolates linearly between keyframes, `export_yaml` bakes the Blender timeline
+   to in-between keyframes (e.g. every 0.04 s in segments that need it) marked `inbetween: true`. In-betweens
+   have no phase/description, no tick on the phase timeline and are skipped by keyframe stepping
+   (schema + `TechniqueTracks` + `PhaseTimeline` change; unit tests).
+6. Rework ippon-seoi-nage with these tools and verify with PosePreview (also between keyframes) and the
+   contact report (no penetration beyond tolerance, no foot sliding).
+
+## Phase 8: Animate techniques per kyu — TODO
+
+- Order: 5th kyu (yellow) -> 4th -> 3rd -> 2nd -> 1st, then U18 shime/kansetsu, then Dan / extra.
+- Each technique: script in `tools/blender/techniques/`, using the phase 7 tools; must pass the contact report.
+- Ground techniques (osaekomi, shime, kansetsu) start with Uki already on the mat (on the back or on four
+  points); Tori moves into the hold and holds it (~3 s). Needs ground poses/helpers in `technique_tools.py`.
+- One commit per technique.

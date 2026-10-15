@@ -1,0 +1,14 @@
+# Catalogue entry: metadata only, no animation yet. Hand-written; a technique script in
+# tools/blender/techniques/ replaces this file once the technique is animated.
+technique_name: "Do-jime"
+dutch_name: "Rompwurging"
+waza_group: "shime_waza"
+category: "Shime-waza (Wurging)"
+code: "SD-3"
+difficulty: "Advanced"
+kyu_grade: 0
+belt_color:
+  name: "Zwarte band"
+  hex: "#000000"
+u18: true
+source: "Kodokan katame-waza, niet in de VJF leerlijn (kinshi-waza: verboden in wedstrijden)"

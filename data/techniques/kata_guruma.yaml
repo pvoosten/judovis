@@ -1,0 +1,14 @@
+# Catalogue entry: metadata only, no animation yet. Hand-written; a technique script in
+# tools/blender/techniques/ replaces this file once the technique is animated.
+technique_name: "Kata-guruma"
+dutch_name: "Schouderwiel"
+waza_group: "nage_waza"
+category: "Te-waza (Handworp)"
+code: "N1-3"
+difficulty: "Hard"
+kyu_grade: 1
+belt_color:
+  name: "Bruine band"
+  hex: "#8B4513"
+u18: false
+source: "VJF leerlijn 2015, bruin"

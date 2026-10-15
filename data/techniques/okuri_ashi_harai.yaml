@@ -1,0 +1,14 @@
+# Catalogue entry: metadata only, no animation yet. Hand-written; a technique script in
+# tools/blender/techniques/ replaces this file once the technique is animated.
+technique_name: "Okuri-ashi-harai"
+dutch_name: "Meeglijdende voetveeg"
+waza_group: "nage_waza"
+category: "Ashi-waza (Beenworp)"
+code: "N2-2"
+difficulty: "Hard"
+kyu_grade: 2
+belt_color:
+  name: "Blauwe band"
+  hex: "#1E90FF"
+u18: false
+source: "VJF leerlijn 2015, blauw"

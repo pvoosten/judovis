@@ -1,0 +1,14 @@
+# Catalogue entry: metadata only, no animation yet. Hand-written; a technique script in
+# tools/blender/techniques/ replaces this file once the technique is animated.
+technique_name: "Yoko-gake"
+dutch_name: "Zijwaartse haakworp"
+waza_group: "nage_waza"
+category: "Yoko-sutemi-waza (Offerworp zijwaarts)"
+code: "ND-41"
+difficulty: "Advanced"
+kyu_grade: 0
+belt_color:
+  name: "Zwarte band"
+  hex: "#000000"
+u18: false
+source: "Kodokan nage-waza, niet in de VJF leerlijn"

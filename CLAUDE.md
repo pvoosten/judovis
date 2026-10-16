@@ -27,6 +27,8 @@ The Godot project lives at the repo root (`res://` = repo root).
 | `tests/JudoVisualizer.Tests/` | Unit tests; `Fixtures/` = fixed YAML independent of `data/` |
 | `art_source/blender/` | `judoka.blend`; ignored by Godot (`.gdignore`) |
 | `tools/blender/` | Build/export the judoka, technique tools, `techniques/<technique>.py`; see its `README.md` |
+| `tools/feedback/` | FeedbackToPrompt: turns `feedback/<technique>.yaml` comments into a Claude Code prompt |
+| `feedback/` | Bone comments written by the app (F2); `.gdignore`, not exported |
 | `docs/` | Project history |
 
 Conventions:
@@ -57,6 +59,12 @@ B=/c/tools/blender/blender.exe
 $B -b art_source/blender/judoka.blend --python-exit-code 1 --python tools/blender/run_technique.py -- <technique> [--draft]
 $G --path . res://scenes/dev/PosePreview.tscn -- --technique=<t> --times=0.4,1.1 --views=side,three_quarter --sheet --size=320x180 --zoom=1.6 --out=<dir>
 ```
+
+## Pose feedback (dev)
+
+Pause, press F2, click a bone of Tori or Uki, type a comment: saved in `feedback/<technique>.yaml`.
+`dotnet run --project tools/feedback -- <technique|all> [--mark-done]` prints one compact prompt per technique
+(also `build/feedback/<technique>.md`); `--mark-done` marks the emitted comments done.
 
 ## Authoring techniques
 

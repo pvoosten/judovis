@@ -15,7 +15,7 @@ of the range they touch; technique_tools.export_yaml bakes such frames into in-b
 import math
 
 import bpy
-from mathutils import Matrix, Vector
+from mathutils import Matrix, Quaternion, Vector
 
 import technique_tools as tt
 
@@ -156,11 +156,13 @@ def plant(arm, side, frame_from, frame_to, pivot="ankle", heel_lift=0.025, until
     return worst
 
 
-def step(arm, side, frame_from, frame_to, height=0.06, to=None, around=None):
+def step(arm, side, frame_from, frame_to, height=0.06, to=None, around=None, lift=0.0):
     """Move `side`'s foot from where it is at frame_from to where it is at frame_to, or to the world
     ankle position `to` (keeping the foot's rotation at frame_to): it lifts by `height` (m), travels
     with ease-in/out and is put down. `around`: a world point the foot swings around in an arc (the
-    pivot foot in tai-sabaki) instead of going straight. Returns the worst unreachable distance."""
+    pivot foot in tai-sabaki) instead of going straight. `lift`: fraction of the step at each end
+    in which the foot only goes up / comes down (no sliding at lift-off and touch-down). Returns the
+    worst unreachable distance."""
     scene = bpy.context.scene
     scene.frame_set(frame_from)
     m0 = foot_matrix(arm, side)
@@ -174,7 +176,8 @@ def step(arm, side, frame_from, frame_to, height=0.06, to=None, around=None):
     # Key the end frame too: keys added inside the range change how frame_to evaluates.
     for f in range(frame_from + 1, frame_to + 1):
         s = (f - frame_from) / (frame_to - frame_from)
-        e = s * s * (3 - 2 * s)  # smoothstep
+        h = min(max((s - lift) / (1 - 2 * lift), 0.0), 1.0)
+        e = h * h * (3 - 2 * h)  # smoothstep
         pos = m0.translation.lerp(m1.translation, e)
         if around is not None:
             c = Vector((around[0], around[1]))
@@ -491,34 +494,49 @@ def hold(arm, hand, target_arm, target_bone, frame_from, frame_to, chain=3, pole
         tt.key(arm, f, bones=bones, root=False)
 
 
-def avoid(arm, bones, other, frame_from, frame_to, allow=(), step=12, steps=3, smooth=0.002):
+def avoid(arm, bones, other, frame_from, frame_to, allow=(), step=12, steps=3, smooth=0.002, relax=1.0,
+          max_rate=None, global_search=True):
     """Per frame, tilt each of `bones` (parents first, e.g. ["RightArm", "RightForearm"]) about two
-    axes across the bone, choosing the tilt that leaves the least overlap (beyond the allowed
-    contacts) between that bone's chain and `other` or the mat; a small penalty per degree of change from the
-    previous frame keeps the motion smooth. Search: a grid of +-step*steps degrees, then refined
-    around the best. Frames without overlap and without a running tilt are left alone. Keys the
-    bones where it tilted. Returns the remaining overlap (m, summed) per frame."""
+    axes across the bone, so that the bone's chain overlaps `other` and the mat as little as possible
+    (beyond the allowed contacts), within +-step*steps degrees. Deterministic: a grid of `step`
+    degrees, then downhill steps halved down to 0.5 degrees, scored by the overlap plus `smooth` (m)
+    per degree away from the previous frame's tilt (eased back towards none by `relax` degrees per
+    frame), so the bone stays on its side of the other judoka and small changes elsewhere give small
+    changes here. `max_rate`: the tilt changes at most that many degrees per frame (no snaps).
+    Frames without overlap keep the eased tilt. Keys the bones where it tilted. Returns the
+    remaining overlap (m, summed) per frame."""
     import contact
     from mathutils import Quaternion
     scene = bpy.context.scene
     fps = scene.render.fps
     arm_obj = tt._arm(arm)
+    other_obj = tt._arm(other)
     chain = _descendants(arm_obj, bones[0])
+    shapes = contact.capsules()
+    limit = step * steps
     previous = {b: (0.0, 0.0) for b in bones}
     remaining = {}
 
-    def excess(t):
-        mine = contact.world_capsules(arm)
-        theirs = contact.world_capsules(other)
+    def excess(t, theirs, tolerances):
+        m = arm_obj.matrix_world
         total = 0.0
         for b in chain:
+            p0, p1, r = shapes[b]
+            bm = m @ arm_obj.pose.bones[b].matrix
+            mine = (bm @ Vector(p0), bm @ Vector(p1), r)
             for o, c in theirs.items():
-                depth, _ = contact.penetration(mine[b], c)
+                depth, _ = contact.penetration(mine, c)
                 if depth > 0:
-                    total += max(0.0, depth - contact.tolerance_for(f"{arm}:{b}", f"{other}:{o}", t, allow))
-            depth = contact.mat_penetration(mine[b])
+                    key = (b, o)
+                    if key not in tolerances:
+                        tolerances[key] = contact.tolerance_for(f"{arm}:{b}", f"{other}:{o}", t, allow)
+                    total += max(0.0, depth - tolerances[key])
+            depth = contact.mat_penetration(mine)
             if depth > 0:
-                total += max(0.0, depth - contact.tolerance_for(f"{arm}:{b}", contact.MAT, t, allow))
+                key = (b, contact.MAT)
+                if key not in tolerances:
+                    tolerances[key] = contact.tolerance_for(f"{arm}:{b}", contact.MAT, t, allow)
+                total += max(0.0, depth - tolerances[key])
         return total
 
     def tilt(pb, base, a1, a2, u, v):
@@ -526,35 +544,164 @@ def avoid(arm, bones, other, frame_from, frame_to, allow=(), step=12, steps=3, s
         pb.matrix = Matrix.Translation(pb.head) @ (q.to_matrix() @ base.to_3x3()).to_4x4()
         _update()
 
+    def eased(p):
+        n = math.hypot(*p)
+        return (0.0, 0.0) if n <= relax else (p[0] * (1 - relax / n), p[1] * (1 - relax / n))
+
+    own = _own_rotations(arm_obj, bones, frame_from, frame_to)
     for f in range(frame_from, frame_to + 1):
         scene.frame_set(f)
+        _restore(arm_obj, own[f])
         t = f / fps
-        if excess(t) == 0 and all(p == (0.0, 0.0) for p in previous.values()):
+        theirs = contact.world_capsules(other_obj)
+        tolerances = {}
+        starts = {b: eased(previous[b]) for b in bones}
+        if all(p == (0.0, 0.0) for p in previous.values()) and excess(t, theirs, tolerances) == 0:
+            previous = starts
             remaining[f] = 0.0
             continue
         for b in bones:
             pb = arm_obj.pose.bones[b]
             base = pb.matrix.copy()
-            d = (pb.tail - pb.head).normalized()
-            a1 = d.orthogonal().normalized()
-            a2 = d.cross(a1).normalized()
-            pu, pv = previous[b]
+            # Tilt axes across the bone that turn with it (its own X and Z): d.orthogonal() would
+            # switch axes when the bone's largest component changes, and the tilt carried over
+            # from the previous frame would then snap the bone by up to 90 degrees.
+            a1 = base.col[0].xyz.normalized()
+            a2 = base.col[2].xyz.normalized()
+            su, sv = starts[b]
 
             def score(u, v):
                 tilt(pb, base, a1, a2, u, v)
-                return excess(t) + smooth * (abs(u - pu) + abs(v - pv)) + 1e-5 * (abs(u) + abs(v))
+                return excess(t, theirs, tolerances) + smooth * (abs(u - su) + abs(v - sv))
 
-            grid = [i * step for i in range(-steps, steps + 1)]
-            best = min(((score(u, v), u, v) for u in grid for v in grid), key=lambda r: r[0])
-            fine = step / 3
-            best = min([best] + [(score(best[1] + du, best[2] + dv), best[1] + du, best[2] + dv)
-                                 for du in (-fine, 0, fine) for dv in (-fine, 0, fine) if du or dv],
-                       key=lambda r: r[0])
+            def allowed(u, v):
+                if abs(u) > limit or abs(v) > limit:
+                    return False
+                return max_rate is None or math.hypot(u - su, v - sv) <= max_rate
+
+            best = (score(su, sv), su, sv)
+            if best[0] > 0 and global_search:
+                grid = [i * step for i in range(-steps, steps + 1)]
+                best = min([best] + [(score(u, v), u, v) for u in grid for v in grid if allowed(u, v)],
+                           key=lambda r: r[0])
+            if best[0] > 0:
+                h = float(step) / 2 if global_search else float(step)
+                while h >= 0.5:
+                    moved = True
+                    while moved:
+                        moved = False
+                        for du, dv in ((h, 0), (-h, 0), (0, h), (0, -h), (h, h), (-h, -h), (h, -h), (-h, h)):
+                            u, v = best[1] + du, best[2] + dv
+                            if not allowed(u, v):
+                                continue
+                            s = score(u, v)
+                            if s < best[0] - 1e-7:
+                                best, moved = (s, u, v), True
+                                break
+                    h /= 2
             tilt(pb, base, a1, a2, best[1], best[2])
             previous[b] = (best[1], best[2])
         tt.key(arm, f, bones=bones, root=False)
-        remaining[f] = excess(t)
+        remaining[f] = excess(t, theirs, tolerances)
     return remaining
+
+
+def repose(arm, bones, frame_from, frame_to, pose):
+    """Pose `bones` again on every frame from frame_from to frame_to, keyed: `pose(w)` (w = 0..1
+    across the segment) places them, e.g. relative to the partner, so a limb that rests on the
+    other judoka follows them instead of interpolating its own rotations between the keyframes."""
+    scene = bpy.context.scene
+    for f in range(frame_from, frame_to + 1):
+        scene.frame_set(f)
+        pose((f - frame_from) / (frame_to - frame_from))
+        tt.key(arm, f, bones=bones, root=False)
+
+
+def limit_rate(arm, bones, frame_from, frame_to, max_degrees=15.0):
+    """Let each of `bones` (parents first) turn at most max_degrees per frame (direction in the
+    armature, so the body's own turning does not count), keyed on every frame: takes out the snaps
+    avoid() leaves where it switches between two ways round the other judoka (a little more
+    overlap there instead). Returns the largest per-frame turn it found before limiting."""
+    scene = bpy.context.scene
+    arm_obj = tt._arm(arm)
+    previous = {}
+    worst = 0.0
+    own = _own_rotations(arm_obj, bones, frame_from, frame_to)
+    for f in range(frame_from, frame_to + 1):
+        scene.frame_set(f)
+        _restore(arm_obj, own[f])
+        for b in bones:
+            pb = arm_obj.pose.bones[b]
+            d = (pb.tail - pb.head).normalized()
+            if b in previous:
+                angle = math.degrees(previous[b].angle(d))
+                worst = max(worst, angle)
+                if angle > max_degrees:
+                    d = previous[b].slerp(d, max_degrees / angle)
+                    _aim_bone(pb, d)
+            previous[b] = d
+        tt.key(arm, f, bones=bones, root=False)
+    return worst
+
+
+def smooth(arm, bones, frame_from, frame_to, radius=3):
+    """Low-pass the bones' rotations over time (a moving average over +-radius frames, clamped to
+    the range), keyed on every frame: takes out frame-to-frame flicker, e.g. after avoid()."""
+    scene = bpy.context.scene
+    arm_obj = tt._arm(arm)
+    frames = range(frame_from, frame_to + 1)
+    raw = {}
+    for f in frames:
+        scene.frame_set(f)
+        raw[f] = {b: arm_obj.pose.bones[b].rotation_quaternion.normalized() for b in bones}
+    for f in frames:
+        scene.frame_set(f)
+        for b in bones:
+            ref = raw[f][b]
+            acc = Vector((0.0, 0.0, 0.0, 0.0))
+            for g in range(max(frame_from, f - radius), min(frame_to, f + radius) + 1):
+                q = raw[g][b].copy()
+                q.make_compatible(ref)
+                acc += Vector(q)
+            arm_obj.pose.bones[b].rotation_quaternion = Quaternion(acc).normalized()
+        tt.key(arm, f, bones=bones, root=False)
+
+
+def hinge_elbows(arm, frame_from, frame_to, sides=("Left", "Right")):
+    """tt.hinge() on every frame: elbows bend like hinges, nothing moves (run after hold/avoid);
+    the upper arms twist smoothly from frame to frame. Returns the largest upper-arm twist per side
+    (degrees from the rest pose)."""
+    scene = bpy.context.scene
+    worst = {s: 0.0 for s in sides}
+    twist = {s: None for s in sides}
+    bones = [f"{s}{b}" for s in sides for b in ("Arm", "Forearm", "Hand")]
+    own = _own_rotations(tt._arm(arm), bones, frame_from, frame_to)
+    for f in range(frame_from, frame_to + 1):
+        scene.frame_set(f)
+        _restore(tt._arm(arm), own[f])
+        for s in sides:
+            twist[s] = tt.hinge(arm, s, previous=twist[s])
+            worst[s] = max(worst[s], abs(twist[s]))
+        tt.key(arm, f, bones=bones, root=False)
+    return worst
+
+
+def _own_rotations(arm_obj, bones, frame_from, frame_to):
+    """The bones' rotations on every frame of the range, read before any keys are added: once frame
+    f-1 is keyed, frame f evaluates part of the way towards that key, and a tool that reads, changes
+    and keys frame by frame would then stack its changes from one frame to the next."""
+    scene = bpy.context.scene
+    rotations = {}
+    for f in range(frame_from, frame_to + 1):
+        scene.frame_set(f)
+        rotations[f] = {b: arm_obj.pose.bones[b].rotation_quaternion.copy() for b in bones}
+    return rotations
+
+
+def _restore(arm_obj, rotations):
+    for b, q in rotations.items():
+        arm_obj.pose.bones[b].rotation_quaternion = q
+    _update()
 
 
 def _descendants(arm_obj, bone):

@@ -21,10 +21,12 @@ namespace JudoVisualizer.Dev;
 /// --size=480x270 scales each image down. --sheet writes one contact sheet instead,
 /// &lt;out&gt;/&lt;technique&gt;_sheet.png: a row per time, a column per view, each labelled
 /// "time view" (default cell size 480x270). --zoom=1.5 moves the fixed views closer.
+/// --focus=0.2,0.2,0.3 aims the fixed views at another point (Godot space; default 0,0.9,0.2,
+/// standing height): ground techniques.
 /// </summary>
 public partial class PosePreview : Node
 {
-    private static readonly Vector3 Focus = new(0, 0.9f, 0.2f);
+    private static readonly Vector3 DefaultFocus = new(0, 0.9f, 0.2f);
 
     private static readonly Dictionary<string, Vector3> Views = new()
     {
@@ -58,6 +60,7 @@ public partial class PosePreview : Node
         var sheet = args.ContainsKey("sheet");
         var zoom = float.Parse(args.GetValueOrDefault("zoom", "1"), CultureInfo.InvariantCulture);
         var size = ParseSize(args.GetValueOrDefault("size", sheet ? "480x270" : ""));
+        var focus = args.TryGetValue("focus", out var f) ? ParseVector(f) : DefaultFocus;
 
         var main = GD.Load<PackedScene>("res://scenes/main/Main.tscn").Instantiate<Node3D>();
         AddChild(main);
@@ -83,7 +86,7 @@ public partial class PosePreview : Node
                 else
                 {
                     cameraManager.ProcessMode = ProcessModeEnum.Disabled;
-                    camera.LookAtFromPosition(Focus + (Views[view] - Focus) / zoom, Focus, view == "top" ? Vector3.Back : Vector3.Up);
+                    camera.LookAtFromPosition(focus + (Views[view] - DefaultFocus) / zoom, focus, view == "top" ? Vector3.Back : Vector3.Up);
                 }
                 var stamp = time.ToString("0.00", CultureInfo.InvariantCulture);
                 label.Text = $"{stamp}s {view}";
@@ -109,6 +112,12 @@ public partial class PosePreview : Node
             GD.Print($"Saved {file} ({times.Count} times x {views.Length} views)");
         }
         GetTree().Quit();
+    }
+
+    private static Vector3 ParseVector(string text)
+    {
+        var v = text.Split(',').Select(x => float.Parse(x, CultureInfo.InvariantCulture)).ToArray();
+        return new Vector3(v[0], v[1], v[2]);
     }
 
     private static Vector2I? ParseSize(string text)

@@ -239,7 +239,10 @@ def print_report(report, title="Contact report", limit=25):
     if not report:
         print(f"{title}: no penetration beyond tolerance.")
         return
-    print(f"{title}: {len(report)} pair(s) beyond tolerance")
+    summed = sum(e["depth"] - e["tolerance"] for e in report.values())
+    worst = max(e["depth"] - e["tolerance"] for e in report.values())
+    print(f"{title}: {len(report)} pair(s) beyond tolerance, {summed * 100:.1f} cm summed, "
+          f"worst {worst * 100:.1f} cm beyond")
     for (a, b), e in sorted(report.items(), key=lambda kv: -kv[1]["depth"])[:limit]:
         print(f"  {a:24} {b:24} {e['depth'] * 100:5.1f} cm (tol {e['tolerance'] * 100:.1f}) "
               f"worst at {e['time']:.2f}s, {e['first']:.2f}-{e['last']:.2f}s")
@@ -258,21 +261,23 @@ def separate(mover, other, allow=(), tolerance=TOLERANCE, horizontal=True, itera
     before keying, e.g. after placing Uki against Tori."""
     arm = bpy.data.objects[mover]
     t = bpy.context.scene.frame_current / bpy.context.scene.render.fps
-    moved = Vector()
+    moved, first = Vector(), None
     for _ in range(iterations):
         caps_m, caps_o = world_capsules(mover), world_capsules(other)
-        worst, push = 0.0, None
+        worst, push, pair = 0.0, None, None
         for bm, cm in caps_m.items():
             for bo, co in caps_o.items():
                 depth, normal = penetration(cm, co)
                 excess = depth - tolerance_for(f"{mover}:{bm}", f"{other}:{bo}", t, allow, tolerance)
                 if excess > worst:
-                    worst, push = excess, normal
+                    worst, push, pair = excess, normal, f"{mover}:{bm} - {other}:{bo}"
         if push is None:
             break
+        first = first or f"{pair} ({worst * 100:.1f} cm)"
         if moved.length > max_distance:
-            print(f"separate {mover}: still overlapping after {moved.length * 100:.0f} cm at {t:.2f}s")
-            break
+            print(f"separate {mover}: still overlapping after {moved.length * 100:.0f} cm at {t:.2f}s "
+                  f"({pair}; first {first})")
+            return moved
         if direction is not None:
             d = Vector(direction).normalized()
             step = d * max(min(worst, 0.02), 0.002)  # small steps: the deepest pair may change
@@ -289,6 +294,8 @@ def separate(mover, other, allow=(), tolerance=TOLERANCE, horizontal=True, itera
         arm.location += step
         moved += step
         bpy.context.view_layer.update()
+    if moved.length > 0.05:
+        print(f"separate {mover}: moved {moved.length * 100:.0f} cm at {t:.2f}s (first {first})")
     return moved
 
 

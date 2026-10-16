@@ -17,8 +17,10 @@ sys.path.insert(0, os.path.normpath(TOOLS))
 import technique_tools as tt  # noqa: E402
 import contact  # noqa: E402
 import motion  # noqa: E402
-for _m in (tt, contact, motion):
+import poses  # noqa: E402
+for _m in (tt, contact, motion, poses):
     importlib.reload(_m)
+from poses import frame, grip, stance, GRIP_DISTANCE  # noqa: E402,F401
 
 NAME = "TODO_technique"  # snake_case
 OUT = os.path.normpath(os.path.join(TOOLS, "..", "..", "data", "techniques", f"{NAME}.yaml"))
@@ -27,13 +29,6 @@ OUT = os.path.normpath(os.path.join(TOOLS, "..", "..", "data", "techniques", f"{
 META = dict(technique_name="TODO", dutch_name="TODO", waza_group="nage_waza", category="TODO",
             code="TODO", difficulty="TODO", kyu_grade=5, belt_name="Gele band", belt_hex="#FFD700",
             source="VJF leerlijn 2015, geel", duration_seconds=2.6)
-
-GRIP_DISTANCE = 0.62
-
-
-def frame(t):
-    return round(t * tt.FPS)
-
 
 ALLOW = [
     contact.Allow("Tori:RightHand", "Uki:Chest", 0.07, end=0.8),  # TODO: grips and intended contacts
@@ -45,12 +40,10 @@ def kumikata():
     tt.place("Tori", (0, 0, 0), (0, 0, 0))
     tt.place("Uki", (0, 0, GRIP_DISTANCE), (0, 180, 0))
     for j in ("Tori", "Uki"):
+        stance(j)
         tt.rot(j, "Spine", (-6, 0, 0))
         tt.ground(j)
-    tt.ik("Tori", "RightHand", "Uki", "LeftLapelGrip")
-    tt.ik("Uki", "RightHand", "Tori", "LeftLapelGrip")
-    tt.ik("Tori", "LeftHand", "Uki", "RightSleeveGrip")
-    tt.ik("Uki", "LeftHand", "Tori", "RightSleeveGrip")
+    grip()
 
 
 KEYFRAMES = [

@@ -116,6 +116,70 @@ def aim(arm, bone, direction):
     _set_accumulated(pb, q.to_matrix() @ acc)
 
 
+ELBOW_FLEXION = Vector((0, 0, -1))  # rest T-pose, palms down: the forearm flexes forward (frame A)
+
+
+def _twist(q, axis):
+    """Angle (radians) of the twist part of q about `axis` (swing-twist decomposition)."""
+    return 2 * math.atan2(Vector((q.x, q.y, q.z)).dot(axis), q.w)
+
+
+def hinge(arm, side, full_from=25.0, max_twist=100.0, previous=None, max_step=12.0):
+    """Make the elbow a hinge without moving the arm: twist the upper arm about its own axis so the
+    forearm bends forward in the elbow's flexion plane (not sideways or backwards), with the forearm
+    untwisted; the upper arm, forearm and hand keep their directions (grips stay put). Nearly straight
+    arms have no defined bend plane: the twist fades out below `full_from` degrees of flexion. The
+    upper arm's own twist stays within +-max_twist degrees of the rest pose (the shoulder's range);
+    an elbow that would need more keeps part of its bend off the hinge plane: straighten that arm
+    in the pose instead. With `previous` (the twist this returned on the frame before) the twist
+    changes by at most max_step degrees (no spinning sleeve where the bend plane flips).
+    Returns the upper arm's resulting twist (degrees from the rest pose)."""
+    arm = _arm(arm)
+    up, fo, ha = (arm.pose.bones[f"{side}{b}"] for b in ("Arm", "Forearm", "Hand"))
+    to_a = lambda v: (B2A @ v).normalized()  # noqa: E731 - armature space -> frame A
+    du, df = to_a(up.tail - up.head), to_a(fo.tail - fo.head)
+    hand = accumulated(ha)
+    flex = math.degrees(du.angle(df))
+    w = min(1.0, max(0.0, (flex - 5.0) / (full_from - 5.0)))
+    w = w * w * (3 - 2 * w)
+    rest_u = to_a(up.bone.tail_local - up.bone.head_local)
+    bend = accumulated(up) @ ELBOW_FLEXION  # current flexion direction, perpendicular to du
+    want = (df - du * df.dot(du)).normalized() if w > 0 else bend
+    theta = math.atan2(bend.cross(want).dot(du), bend.dot(want)) * w
+    before = _twist(delta(up).to_quaternion(), rest_u)
+    limit = math.radians(max_twist)
+    after = min(limit, max(-limit, before + theta))
+    if previous is not None:
+        p, step = math.radians(previous), math.radians(max_step)
+        after = min(p + step, max(p - step, after))
+    theta = after - before
+    _set_accumulated(up, Quaternion(du, theta).to_matrix() @ accumulated(up))
+    # Forearm: pure flexion about the hinge, then the (small, for w < 1) rest of the way to df.
+    rest_f = to_a(fo.bone.tail_local - fo.bone.head_local)
+    bent = rest_f * math.cos(math.radians(flex)) + ELBOW_FLEXION * math.sin(math.radians(flex))
+    _set_accumulated(fo, accumulated(up) @ rest_f.rotation_difference(bent).to_matrix())
+    aim(arm, f"{side}Forearm", df)
+    _set_accumulated(ha, hand)  # the palm keeps facing the same way (the forearm pronates)
+    assert rest_u.dot(rest_f) > 0.99  # the arm is straight in the rest pose
+    return math.degrees(after)
+
+
+def palm(arm, side, world_dir):
+    """Turn the hand about the forearm (pronation/supination) so the palm faces a world direction
+    (Blender space) as far as it can."""
+    arm = _arm(arm)
+    ha = arm.pose.bones[f"{side}Hand"]
+    fo = arm.pose.bones[f"{side}Forearm"]
+    axis = (B2A @ (fo.tail - fo.head)).normalized()
+    want = B2A @ arm.matrix_world.to_3x3().normalized().inverted() @ Vector(world_dir)
+    now = accumulated(ha) @ Vector((0, -1, 0))  # rest palms down
+    now, want = now - axis * now.dot(axis), want - axis * want.dot(axis)
+    if now.length < 1e-6 or want.length < 1e-6:
+        return
+    angle = math.atan2(now.cross(want).dot(axis), now.dot(want))
+    _set_accumulated(ha, Quaternion(axis, angle).to_matrix() @ accumulated(ha))
+
+
 def aim_at(arm, bone, world_point):
     """Point a bone (head -> tail) at a world point (Blender space), with minimal twist."""
     arm = _arm(arm)

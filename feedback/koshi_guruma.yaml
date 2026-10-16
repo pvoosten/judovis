@@ -1,10 +1,24 @@
 - technique: koshi_guruma
+  time: 0.54
+  phase: Kuzushi (Balansverstoring)
+  who: tori
+  bone: right_forearm
+  text: elleboog beweegt naar boven, maar moet uki eigenlijk duwen
+  status: open
+- technique: koshi_guruma
   time: 0.56
   phase: Kuzushi (Balansverstoring)
   who: tori
   bone: right_forearm
   text: elleboog onnatuurlijk gedraaid
   status: done
+- technique: koshi_guruma
+  time: 0.59
+  phase: Tsukuri (Instap & Draai)
+  who: tori
+  bone: right_forearm
+  text: elleboog zit achter de nek. dat kan niet
+  status: open
 - technique: koshi_guruma
   time: 0.64
   phase: Tsukuri (Instap & Draai)
@@ -19,6 +33,20 @@
   bone: right_forearm
   text: hand beweegt door eigen lichaam van uki
   status: done
+- technique: koshi_guruma
+  time: 0.98
+  phase: Tsukuri (Instap & Draai)
+  who: tori
+  bone: right_arm
+  text: elleboog komt van boven naar onder, maar moet hier van onder naar boven komen
+  status: open
+- technique: koshi_guruma
+  time: 1.35
+  phase: Kake (Worp)
+  who: tori
+  bone: right_arm
+  text: elleboog van tori zit boven arm van uki maar moet eronder zitten
+  status: open
 - technique: koshi_guruma
   time: 1.47
   phase: Kake (Worp)
@@ -40,3 +68,10 @@
   bone: right_arm
   text: arm van uki beweegt achteruit in plaats van vooruit
   status: done
+- technique: koshi_guruma
+  time: 2.23
+  phase: Ukemi (Valbreking)
+  who: uki
+  bone: spine
+  text: uki valt op rug maar moet zijwaarts vallen
+  status: open

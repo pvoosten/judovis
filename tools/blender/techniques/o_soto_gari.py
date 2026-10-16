@@ -148,12 +148,14 @@ def foot_on(j, side, ankle, yaw=None):
         print(f"foot_on {j} {side}: {residual * 100:.1f} cm out of reach")
 
 
-def tori_on_left(height=0.86, inward=0.03, back=0.0):
+def tori_on_left(height=0.86, inward=0.03, back=0.0, thigh=40):
     """Tori stands on the left leg: the hips go over the left ankle (`inward`: towards his right,
     `back`: behind it), `height` above the mat; then the foot is put flat on the mat. Use after
     setting the root rotation (a forward tilt swings the trunk and the reaping leg about the hips)."""
     hips = TORI_LEFT + right_of("Tori") * inward - facing("Tori") * back
     tt.pin("Tori", "Hips", Vector((hips.x, hips.y, height)))
+    tt.rot("Tori", "LeftUpLeg", (thigh, 0, 0))  # (`thigh`: the IK picks the other knee direction below ~55 deg when the trunk is tipped 45 deg) bend plane for the leg IK: the knee bends forward, never back
+    tt.rot("Tori", "LeftLeg", (-80, 0, 0))
     foot_on("Tori", "Left", TORI_LEFT, yaw=-12)
 
 
@@ -386,7 +388,7 @@ def ukemi():
     tt.rot("Tori", "RightLeg", (-40, 0, 0))
     tt.rot("Tori", "RightFoot", (20, 0, 0))
     tori_free_right_arm()
-    tori_on_left(0.84)
+    tori_on_left(0.84, thigh=60)
     ukemi_pose(curl=30, roll=10)  # landing: the slapping arm on the mat
 
 
@@ -509,6 +511,8 @@ def shape():
         motion.avoid("Uki", ["LeftArm", "LeftForearm"], "Tori", frame(0.95), frame(1.5), ALLOW, max_rate=6)
         motion.avoid("Tori", ["RightArm", "RightForearm"], "Uki", frame(1.3), frame(2.1), ALLOW, max_rate=6)
     motion.smooth("Uki", ["LeftArm", "LeftForearm", "RightArm", "RightForearm"], frame(0.95), frame(1.5))
+    # Uki's gripping elbow turns smoothly while Tori steps in (the elbow search flips it at the keyframe).
+    motion.smooth("Uki", ["RightArm", "RightForearm"], frame(0.34), frame(0.46), radius=2)
     for j in ("Tori", "Uki"):
         print(f"Elbow hinge {j}: largest upper-arm twist", motion.hinge_elbows(j, 0, frame(2.5)))
     # The hinge twists the forearms, and with them the sleeves (off the forearm's axis): the sleeve
@@ -534,6 +538,8 @@ def check():
     motion.print_balance("Tori (after the throw)", motion.balance("Tori", frame(1.62), frame(2.5)))
     landing = motion.first_mat_contact("Uki", ["Hips", "Spine", "LeftHand", "LeftForearm"], frame(1.2))
     print("Uki on the mat:", {b: t for b, t in landing.items()})
+    motion.print_limits(motion.limit_violations("Tori"), "Joint limits Tori")
+    motion.print_limits(motion.limit_violations("Uki"), "Joint limits Uki")
 
 
 def main(upto=None, export=True):

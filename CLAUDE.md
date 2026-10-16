@@ -126,7 +126,7 @@ contact tools). Animated: ippon-seoi-nage, koshi-guruma (phase 8 pilot), o-uchi-
   Tori's right arm: hand on Uki's back collar (two-link solve in `arm_round_neck`), swings there from the
   lapel 0.4-0.76 s (`arm_to_neck`); Uki's held arm swings ahead during the fall (`uki_arm_swing`).
   Tori could bow deeper at kake.
-- O-soto-gari: 16.4 cm summed over 11 pairs, worst 4.7 cm (Definition of done item 12 wants <= 3 cm):
+- O-soto-gari: 25.1 cm summed over 13 pairs, worst 4.8 cm (Definition of done item 12 wants <= 3 cm):
   Tori's sleeve forearm crosses Uki's gripping forearm at the step-in (0.3-0.4 s); a wider step fixes it
   but puts Tori ~6 cm off balance, an elbow pole lifts the elbow to shoulder height. Kuzushi onto
   Uki's right heel at 0.4 s is weak (item 3). Grips: hold() runs after the partner's arm has its final

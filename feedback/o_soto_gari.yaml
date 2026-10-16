@@ -1,0 +1,14 @@
+- technique: o_soto_gari
+  time: 0.41
+  phase: Kuzushi (Balansverstoring)
+  who: uki
+  bone: right_arm
+  text: uki elleboog plots naar binnen gedraaid
+  status: done
+- technique: o_soto_gari
+  time: 1.22
+  phase: Nage (Worp)
+  who: tori
+  bone: left_up_leg
+  text: knie in tegengestelde richting gedraaid
+  status: done

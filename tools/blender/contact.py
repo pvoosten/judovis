@@ -250,6 +250,99 @@ def print_report(report, title="Contact report", limit=25):
         print(f"  ... {len(report) - limit} more")
 
 
+# --- bodies: no bone inside a body ---------------------------------------------------------------
+#
+# The capsule checks above allow grips and rubbing (up to 7 cm). On top of that, no bone (the line
+# from joint to joint, so hands, wrists, elbows... included) of a judoka may ever lie inside a
+# capsule of the partner's body, or inside a capsule of its own body further than a joint away
+# (a hand through its own thigh or chest). No Allow rules: this is anatomy, not cloth.
+
+BONE_TOLERANCE = 0.0  # m a bone line may sink into a capsule
+CLOTH = 0.02  # m a hand's bone line may sink into the partner's capsule: the gi is thicker than the capsule
+_neighbours = None  # {bone: {other bones within two joints}}: those capsules overlap by design
+
+
+def neighbours():
+    global _neighbours
+    if _neighbours is None:
+        bones = bpy.data.objects[JUDOKA[0]].data.bones
+        names = set(capsules())
+        graph = {n: set() for n in names}
+        for b in bones:
+            if b.name in names and b.parent is not None and b.parent.name in names:
+                graph[b.name].add(b.parent.name)
+                graph[b.parent.name].add(b.name)
+        _neighbours = {}
+        for n in names:
+            near = {n} | graph[n]
+            for m in list(graph[n]):
+                near |= graph[m]
+            _neighbours[n] = near
+    return _neighbours
+
+
+def world_bones(arm):
+    """{bone: (head, tail)} in Blender world space for the current pose (deforming bones with a capsule)."""
+    arm = bpy.data.objects[arm] if isinstance(arm, str) else arm
+    return {b: (arm.matrix_world @ arm.pose.bones[b].head, arm.matrix_world @ arm.pose.bones[b].tail)
+            for b in capsules()}
+
+
+def bone_tolerance(bone, same_judoka):
+    """Tolerance (m) for `bone` (name, no judoka) against a capsule: hands may grip the partner's cloth."""
+    return BONE_TOLERANCE if same_judoka or not bone.endswith("Hand") else CLOTH
+
+
+def bone_depth(bone, capsule):
+    """How far the bone line (head, tail) sinks into the capsule (> 0 = inside)."""
+    dist, _, _ = segment_distance(bone[0], bone[1], capsule[0], capsule[1])
+    return capsule[2] - dist
+
+
+def bodies_at(tolerance=BONE_TOLERANCE, judoka=JUDOKA):
+    """Bones inside a body at the current frame: [(bone "J:Bone", capsule "J:Bone", depth)] -- the
+    bone is inside the capsule of the other judoka, or of a non-adjacent bone of its own."""
+    near = neighbours()
+    bones = {j: world_bones(j) for j in judoka}
+    caps = {j: world_capsules(j) for j in judoka}
+    found = []
+    for j in judoka:
+        for k in judoka:
+            for b, bone in bones[j].items():
+                for c, cap in caps[k].items():
+                    if j == k and c in near[b]:
+                        continue
+                    depth = bone_depth(bone, cap)
+                    if depth > max(tolerance, bone_tolerance(b, j == k)):
+                        found.append((f"{j}:{b}", f"{k}:{c}", depth))
+    return found
+
+
+def check_bodies(tolerance=BONE_TOLERANCE, start=None, end=None):
+    """Every frame: {(bone, capsule): dict(depth, time, first, last, tolerance)} for each bone that
+    sinks into a body (see bodies_at), worst depth and when. Same shape as check_contacts()."""
+    scene = bpy.context.scene
+    report = {}
+    for f in frames(start, end):
+        scene.frame_set(f)
+        t = f / scene.render.fps
+        for a, b, depth in bodies_at(tolerance):
+            entry = report.setdefault((a, b), dict(depth=0.0, time=t, first=t, last=t, tolerance=tolerance))
+            entry["last"] = t
+            if depth > entry["depth"]:
+                entry.update(depth=depth, time=t)
+    return report
+
+
+def check_all(allow=(), tolerance=TOLERANCE):
+    """check_contacts() and check_bodies(), printed one after the other; returns both reports."""
+    contacts = check_contacts(allow, tolerance)
+    print_report(contacts)
+    bodies = check_bodies()
+    print_report(bodies, "Bones inside bodies")
+    return contacts, bodies
+
+
 # --- resolving ---------------------------------------------------------------------------------
 
 def separate(mover, other, allow=(), tolerance=TOLERANCE, horizontal=True, iterations=40, direction=None,

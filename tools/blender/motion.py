@@ -495,7 +495,7 @@ def hold(arm, hand, target_arm, target_bone, frame_from, frame_to, chain=3, pole
 
 
 def avoid(arm, bones, other, frame_from, frame_to, allow=(), step=12, steps=3, smooth=0.002, relax=1.0,
-          max_rate=None, global_search=True):
+          max_rate=None, global_search=True, bodies=True):
     """Per frame, tilt each of `bones` (parents first, e.g. ["RightArm", "RightForearm"]) about two
     axes across the bone, so that the bone's chain overlaps `other` and the mat as little as possible
     (beyond the allowed contacts), within +-step*steps degrees. Deterministic: a grid of `step`
@@ -503,6 +503,8 @@ def avoid(arm, bones, other, frame_from, frame_to, allow=(), step=12, steps=3, s
     per degree away from the previous frame's tilt (eased back towards none by `relax` degrees per
     frame), so the bone stays on its side of the other judoka and small changes elsewhere give small
     changes here. `max_rate`: the tilt changes at most that many degrees per frame (no snaps).
+    `bodies`: also keep the chain's bone lines out of the partner's and its own body, and the
+    partner's and the rest of its own bones out of the chain's capsules (contact.bodies_at, no allows).
     Frames without overlap keep the eased tilt. Keys the bones where it tilted. Returns the
     remaining overlap (m, summed) per frame."""
     import contact
@@ -513,11 +515,12 @@ def avoid(arm, bones, other, frame_from, frame_to, allow=(), step=12, steps=3, s
     other_obj = tt._arm(other)
     chain = _descendants(arm_obj, bones[0])
     shapes = contact.capsules()
+    near = contact.neighbours()
     limit = step * steps
     previous = {b: (0.0, 0.0) for b in bones}
     remaining = {}
 
-    def excess(t, theirs, tolerances):
+    def excess(t, theirs, tolerances, fixed=None):
         m = arm_obj.matrix_world
         total = 0.0
         for b in chain:
@@ -537,6 +540,34 @@ def avoid(arm, bones, other, frame_from, frame_to, allow=(), step=12, steps=3, s
                 if key not in tolerances:
                     tolerances[key] = contact.tolerance_for(f"{arm}:{b}", contact.MAT, t, allow)
                 total += max(0.0, depth - tolerances[key])
+        if bodies:
+            total += body_excess(fixed)
+        return total
+
+    def body_excess(fixed):
+        """Bone lines inside capsules (strictly): chain bones in other bodies or own non-neighbour
+        capsules, and fixed bones (partner's, own non-chain) in the chain's capsules."""
+        m = arm_obj.matrix_world
+        mine_bones, mine_caps = {}, {}
+        for b in chain:
+            pb = arm_obj.pose.bones[b]
+            p0, p1, r = shapes[b]
+            bm = m @ pb.matrix
+            mine_bones[b] = (m @ pb.head, m @ pb.tail)
+            mine_caps[b] = (bm @ Vector(p0), bm @ Vector(p1), r)
+        total = 0.0
+        for b, bone in mine_bones.items():
+            for c, cap in fixed["their_caps"].items():
+                total += max(0.0, contact.bone_depth(bone, cap) - contact.bone_tolerance(b, False))
+            for c, cap in fixed["own_caps"].items():
+                if c not in near[b]:
+                    total += max(0.0, contact.bone_depth(bone, cap) - contact.BONE_TOLERANCE)
+        for c, cap in mine_caps.items():
+            for k, bone in fixed["their_bones"].items():
+                total += max(0.0, contact.bone_depth(bone, cap) - contact.bone_tolerance(k, False))
+            for k, bone in fixed["own_bones"].items():
+                if k not in near[c]:
+                    total += max(0.0, contact.bone_depth(bone, cap) - contact.BONE_TOLERANCE)
         return total
 
     def tilt(pb, base, a1, a2, u, v):
@@ -555,8 +586,15 @@ def avoid(arm, bones, other, frame_from, frame_to, allow=(), step=12, steps=3, s
         t = f / fps
         theirs = contact.world_capsules(other_obj)
         tolerances = {}
+        fixed = None
+        if bodies:
+            own_caps = contact.world_capsules(arm_obj)
+            own_bones = contact.world_bones(arm_obj)
+            fixed = dict(their_caps=theirs, their_bones=contact.world_bones(other_obj),
+                         own_caps={k: v for k, v in own_caps.items() if k not in chain},
+                         own_bones={k: v for k, v in own_bones.items() if k not in chain})
         starts = {b: eased(previous[b]) for b in bones}
-        if all(p == (0.0, 0.0) for p in previous.values()) and excess(t, theirs, tolerances) == 0:
+        if all(p == (0.0, 0.0) for p in previous.values()) and excess(t, theirs, tolerances, fixed) == 0:
             previous = starts
             remaining[f] = 0.0
             continue
@@ -572,7 +610,7 @@ def avoid(arm, bones, other, frame_from, frame_to, allow=(), step=12, steps=3, s
 
             def score(u, v):
                 tilt(pb, base, a1, a2, u, v)
-                return excess(t, theirs, tolerances) + smooth * (abs(u - su) + abs(v - sv))
+                return excess(t, theirs, tolerances, fixed) + smooth * (abs(u - su) + abs(v - sv))
 
             def allowed(u, v):
                 if abs(u) > limit or abs(v) > limit:
@@ -602,7 +640,7 @@ def avoid(arm, bones, other, frame_from, frame_to, allow=(), step=12, steps=3, s
             tilt(pb, base, a1, a2, best[1], best[2])
             previous[b] = (best[1], best[2])
         tt.key(arm, f, bones=bones, root=False)
-        remaining[f] = excess(t, theirs, tolerances)
+        remaining[f] = excess(t, theirs, tolerances, fixed)
     return remaining
 
 

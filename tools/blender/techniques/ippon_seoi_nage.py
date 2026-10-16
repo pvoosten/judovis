@@ -452,7 +452,7 @@ def shape():
 
 def check():
     """Print the reports the technique must pass (CLAUDE.md, phase 7)."""
-    contact.print_report(contact.check_contacts(ALLOW))
+    contact.check_all(ALLOW)
     motion.print_sliding(motion.foot_sliding("Tori"), "Foot sliding Tori")
     motion.print_sliding(motion.foot_sliding("Uki", 0, frame(1.4)), "Foot sliding Uki (on the mat)")
     # The windows of tori_carries_uki(): Uki leans on Tori from 1.0 s (fully after its 3-frame ramp;

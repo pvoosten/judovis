@@ -523,7 +523,7 @@ def shape():
 
 def check():
     """Print the reports the technique must pass (CLAUDE.md, phase 7)."""
-    contact.print_report(contact.check_contacts(ALLOW))
+    contact.check_all(ALLOW)
     motion.print_sliding(motion.foot_sliding("Tori"), "Foot sliding Tori")
     motion.print_sliding(motion.foot_sliding("Uki", 0, frame(0.9)), "Foot sliding Uki (on the mat)")
     motion.print_balance("Tori (step in)", motion.balance("Tori", 0, frame(0.4)))

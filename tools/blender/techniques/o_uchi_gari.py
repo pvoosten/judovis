@@ -147,7 +147,7 @@ def hook(fresh=True):
 TORI_LEFT_START, TORI_RIGHT_START = (0.16, 0.0, 0), (-0.16, 0.0, 0)
 TORI_RIGHT_IN = (-0.10, 0.24, 10)
 TORI_LEFT_UP = (0.05, 0.20, 40)
-TORI_RIGHT_DOWN = (-0.04, 0.47, 15)
+TORI_RIGHT_DOWN = (-0.11, 0.47, 15)
 
 
 # --- keyframe poses ------------------------------------------------------------------------------
@@ -389,10 +389,12 @@ def shape():
         print(f"Elbow hinge {j}: largest upper-arm twist", motion.hinge_elbows(j, 0, frame(2.6)))
     # avoid and the elbow twist move the arms (and the sleeve grips on the forearms): grip again.
     hold_grips()
+    # The grips pull the sleeve arms through each other again: tilt them clear (a hand may end up 1-2 cm off its grip).
+    motion.avoid("Uki", ["LeftArm", "LeftForearm"], "Tori", frame(0.7), frame(1.2), ALLOW, max_rate=3)
 
 
 def check():
-    contact.print_report(contact.check_contacts(ALLOW))
+    contact.check_all(ALLOW)
     motion.print_sliding(motion.foot_sliding("Tori"), "Foot sliding Tori")
     motion.print_sliding(motion.foot_sliding("Uki", 0, frame(0.92)), "Foot sliding Uki (before the reap)")
     # From the hook on, Uki's left foot is reaped (swept over the mat): only the right one must stay.

@@ -66,22 +66,53 @@ ALLOW = (
 
 BODY_ALLOW = poses.body_allow(ALLOW)
 TORI_FEET = {}  # the right toe where Tori steps in (pivot of tai-sabaki), then the middle of the ankles
+LAPEL_ARM = {}  # Tori's right arm on Uki's lapel at kuzushi: start of the swing round the neck
 
 
 def push_back(direction):
     poses.push_back(ALLOW, direction)
 
 
-def arm_round_neck(_w=None, side=0.08, up=0.06, behind=0.12):
-    """Tori's right arm round Uki's neck, in Uki's own frame (valid however Uki is turned): the
-    upper arm up between Uki's neck and right shoulder (`side` out, `up` along the neck), the forearm behind it (`behind`), the
-    hand at the left of Uki's neck. Aimed from the rest pose: no twist builds up frame to frame."""
-    neck = tt.bone_pos("Uki", "Neck")
+def arm_round_neck(_w=None, across=0.07, behind=0.02, pole=(0.3, 0.3, -1.0)):
+    """Tori's right arm round Uki's neck, the hand on the back of Uki's collar (a little towards his
+    left side), in Uki's own frame (valid however Uki is turned). Two-link solve: the hand lands on
+    the collar point and the elbow bends towards `pole` (Uki's frame: right, up, back; default in
+    front of his neck). Aimed from the rest pose: no twist builds up frame to frame."""
     right, along, back = axis("Uki", (1, 0, 0)), axis("Uki", (0, 1, 0)), axis("Uki", (0, 0, 1))
-    tt.rot("Tori", "RightArm", (0, 0, 0))
-    tt.rot("Tori", "RightForearm", (0, 0, 0))
-    tt.aim_at("Tori", "RightArm", neck + right * side + along * up)
-    tt.aim_at("Tori", "RightForearm", neck + back * behind - right * 0.08)
+    hand = tt.bone_pos("Uki", "BackCollarGrip") - right * across + back * behind
+    shoulder = tt.bone_pos("Tori", "RightArm")
+    upper = (tt.bone_pos("Tori", "RightArm", tail=True) - shoulder).length
+    lower = (tt.bone_pos("Tori", "RightForearm", tail=True) - tt.bone_pos("Tori", "RightForearm")).length
+    lower += (tt.bone_pos("Tori", "RightHand", tail=True) - tt.bone_pos("Tori", "RightHand")).length
+    reach = hand - shoulder
+    d = min(reach.length, 0.98 * (upper + lower))
+    u = reach.normalized()
+    hint = right * pole[0] + along * pole[1] + back * pole[2]
+    perp = (hint - u * hint.dot(u)).normalized()
+    a = (upper ** 2 - lower ** 2 + d ** 2) / (2 * d)
+    elbow = shoulder + u * a + perp * max(upper ** 2 - a ** 2, 0.0) ** 0.5
+    for b in ("RightArm", "RightForearm", "RightHand"):
+        tt.rot("Tori", b, (0, 0, 0))
+    tt.aim_at("Tori", "RightArm", elbow)
+    tt.aim_at("Tori", "RightForearm", shoulder + u * d)
+
+
+def arm_to_neck(w):
+    """Tori's right arm swings from the lapel (kuzushi) round Uki's neck: a blend of the two poses'
+    rotations, each of them twist-free, so the elbow does not flip on the way."""
+    arm_round_neck()
+    pose = bpy.data.objects["Tori"].pose.bones
+    s = w * w * (3 - 2 * w)
+    for b in ("RightArm", "RightForearm", "RightHand"):
+        pose[b].rotation_quaternion = LAPEL_ARM[b].slerp(pose[b].rotation_quaternion.copy(), s)
+
+
+def uki_arm_swing(w):
+    """Uki's held right arm follows him forward over the first 0.2 s of the fall (the pull point moves
+    ahead of Tori's chest as Tori comes up), then rests where uki_arm_held() puts it: the hand does not
+    move back towards Tori while Uki's body travels away from him."""
+    s = min(1.0, w / 0.25)
+    uki_arm_held(ahead=0.4 + 0.25 * s * s * (3 - 2 * s))
 
 
 def uki_arm_under_armpit():
@@ -135,6 +166,8 @@ def kuzushi():
     tt.ground("Tori")
     TORI_FEET["pivot"] = tt.bone_pos("Tori", "RightFoot", tail=True)
     grip()
+    for b in ("RightArm", "RightForearm", "RightHand"):
+        LAPEL_ARM[b] = bpy.data.objects["Tori"].pose.bones[b].rotation_quaternion.copy()
 
 
 def tai_sabaki():
@@ -362,9 +395,10 @@ def shape():
         released.append(lifted or frame(1.4))
         print(f"Uki's {side.lower()} foot leaves the mat at {lifted / tt.FPS if lifted else None}s")
     motion.fall("Uki", frame(1.7), frame(2.2))
-    motion.repose("Uki", ["RightArm", "RightForearm"], frame(1.7), frame(2.6), uki_arm_held)
+    motion.repose("Uki", ["RightArm", "RightForearm"], frame(1.7), frame(2.6), uki_arm_swing)
     # Tori's arm stays round Uki's neck however Uki turns, until he lets go.
-    motion.repose("Tori", ["RightArm", "RightForearm"], frame(0.76), frame(1.7), arm_round_neck)
+    motion.repose("Tori", ["RightArm", "RightForearm", "RightHand"], frame(0.4), frame(0.76), arm_to_neck)
+    motion.repose("Tori", ["RightArm", "RightForearm", "RightHand"], frame(0.76), frame(1.7), arm_round_neck)
     contact.resolve("Uki", "Tori", frame(1.7) + 1, frame(2.0), BODY_ALLOW, direction=Vector((0, 0, 1)) + facing("Tori"))
     motion.avoid("Uki", ["Chest", "Neck"], "Tori", frame(0.4), frame(1.06), BODY_ALLOW, step=8, max_rate=3)
     motion.hold("Tori", "LeftHand", "Uki", "RightSleeveGrip", frame(0.0), frame(2.6))
@@ -385,7 +419,7 @@ def shape():
 
 
 def check():
-    contact.print_report(contact.check_contacts(ALLOW))
+    contact.check_all(ALLOW)
     motion.print_sliding(motion.foot_sliding("Tori"), "Foot sliding Tori")
     motion.print_sliding(motion.foot_sliding("Uki", 0, frame(1.4)), "Foot sliding Uki (on the mat)")
     motion.print_balance("Tori (entry)", motion.balance("Tori", 0, frame(1.0)))

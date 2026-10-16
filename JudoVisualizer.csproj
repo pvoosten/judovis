@@ -11,5 +11,7 @@
   <ItemGroup>
     <!-- Unit tests live in their own project (tests/JudoVisualizer.Tests). -->
     <Compile Remove="tests/**" />
+    <!-- Dev tools (tools/feedback) are separate projects. -->
+    <Compile Remove="tools/**" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,7 @@
+ippon_seoi_nage (tools/blender/techniques/ippon_seoi_nage.py). Fix these in the pose functions, rerun --draft, then the full run + dotnet test; change nothing else.
+between kf2 (0.9 s) and kf3 (1.6 s) [tsukuri, kake]:
+- uki.right_leg: been te gestrekt (1.25 s)
+kf3 1.60s Kake (kake):
+- tori.right_arm: hand hoger; elleboog te laag
+- uki.left_foot: hiel moet omhoog
+Leave the other keyframes alone.

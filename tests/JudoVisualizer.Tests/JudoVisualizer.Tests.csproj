@@ -10,12 +10,12 @@
     <!-- Engine-independent code is compiled in directly. Outside src/Data (where only TechniqueLoader
          needs Godot) the Godot-free files are listed one by one. -->
     <Compile Include="../../src/Data/**/*.cs" Exclude="../../src/Data/TechniqueLoader.cs" LinkBase="Data" />
-    <Compile Include="../../src/Playback/KeyTrack.cs;../../src/Playback/TechniqueTracks.cs;../../src/Playback/PlaybackClock.cs"
+    <Compile Include="../../src/Playback/KeyTrack.cs;../../src/Playback/TechniqueTracks.cs;../../src/Playback/PlaybackClock.cs;../../src/Playback/BonePicker.cs"
              LinkBase="Playback" />
     <Compile Include="../../src/Camera/OrbitModel.cs" LinkBase="Camera" />
     <Compile Include="../../src/UI/TechniqueCatalog.cs" LinkBase="UI" />
     <None Include="../../data/techniques/*.yaml" LinkBase="techniques" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="Fixtures/*.yaml" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Fixtures/*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />

@@ -61,6 +61,51 @@ internal sealed class JudokaRig
         model as Skeleton3D
         ?? model.FindChildren("*", nameof(Skeleton3D), true, false).OfType<Skeleton3D>().FirstOrDefault();
 
+    /// <summary>
+    /// The bones of <paramref name="model"/> as world-space line segments (origin to the child bone's origin;
+    /// head, hands and feet get a short stub), for picking with the mouse. Bone names are skeleton names.
+    /// </summary>
+    internal static List<(string Bone, Vector3 A, Vector3 B)> BoneSegments(Node3D model)
+    {
+        var segments = new List<(string, Vector3, Vector3)>();
+        var skeleton = FindSkeleton(model);
+        if (skeleton is null)
+            return segments;
+
+        var known = new Dictionary<int, string>();
+        for (var i = 0; i < skeleton.GetBoneCount(); i++)
+            if (BoneNames.Skeleton.Contains(skeleton.GetBoneName(i)))
+                known[i] = skeleton.GetBoneName(i);
+
+        Vector3 Origin(int bone) => skeleton.GlobalTransform * skeleton.GetBoneGlobalPose(bone).Origin;
+        int Parent(int bone)
+        {
+            for (var p = skeleton.GetBoneParent(bone); p >= 0; p = skeleton.GetBoneParent(p))
+                if (known.ContainsKey(p))
+                    return p;
+            return -1;
+        }
+
+        var hasChild = new HashSet<int>();
+        foreach (var bone in known.Keys)
+            if (Parent(bone) is >= 0 and var parent)
+            {
+                hasChild.Add(parent);
+                segments.Add((known[parent], Origin(parent), Origin(bone)));
+            }
+
+        var forward = (skeleton.GlobalTransform.Basis * Vector3.Back).Normalized(); // models face +Z at rest
+        foreach (var (bone, name) in known.Where(k => !hasChild.Contains(k.Key)))
+        {
+            var from = Origin(bone);
+            var parent = Parent(bone);
+            var along = parent >= 0 ? (from - Origin(parent)).Normalized() : Vector3.Up;
+            var tip = name.EndsWith("Foot") ? forward * 0.18f : along * (name == "Head" ? 0.22f : 0.09f);
+            segments.Add((name, from, from + tip));
+        }
+        return segments;
+    }
+
     public void Apply(float time)
     {
         if (_tracks.Position is { } position)

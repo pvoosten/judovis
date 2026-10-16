@@ -1,0 +1,42 @@
+- technique: ippon_seoi_nage
+  time: 1.6
+  phase: Kake (Worp & Handeling)
+  who: uki
+  bone: left_foot
+  text: hiel moet omhoog
+  status: open
+- technique: ippon_seoi_nage
+  time: 1.62
+  phase: Kake (Worp & Handeling)
+  who: tori
+  bone: right_arm
+  text: elleboog te laag
+  status: open
+- technique: ippon_seoi_nage
+  time: 1.58
+  phase: Kake (Worp & Handeling)
+  who: tori
+  bone: right_arm
+  text: hand hoger
+  status: open
+- technique: ippon_seoi_nage
+  time: 1.2
+  phase: Tsukuri (Instap & Draai)
+  who: tori
+  bone: spine
+  text: ' '
+  status: open
+- technique: ippon_seoi_nage
+  time: 1.2
+  phase: Tsukuri (Instap & Draai)
+  who: tori
+  bone: right_up_leg
+  text: voet te ver naar links
+  status: done
+- technique: ippon_seoi_nage
+  time: 1.25
+  phase: Tsukuri (Instap & Draai)
+  who: uki
+  bone: right_leg
+  text: been te gestrekt
+  status: open

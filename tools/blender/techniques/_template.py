@@ -63,6 +63,8 @@ def check():
     contact.check_all(ALLOW)
     motion.print_sliding(motion.foot_sliding("Tori"), "Foot sliding Tori")
     motion.print_balance("Tori", motion.balance("Tori"))
+    motion.print_limits(motion.limit_violations("Tori"), "Joint limits Tori")
+    motion.print_limits(motion.limit_violations("Uki"), "Joint limits Uki")
 
 
 def main(upto=None, export=True):

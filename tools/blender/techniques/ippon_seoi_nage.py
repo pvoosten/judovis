@@ -463,6 +463,8 @@ def check():
     motion.print_balance("Tori (after the throw)", motion.balance("Tori", frame(1.7) + 1, frame(2.6)))
     landing = motion.first_mat_contact("Uki", ["Hips", "Spine", "LeftHand", "LeftForearm"], frame(1.5))
     print("Uki on the mat:", {b: t for b, t in landing.items()})
+    motion.print_limits(motion.limit_violations("Tori"), "Joint limits Tori")
+    motion.print_limits(motion.limit_violations("Uki"), "Joint limits Uki")
 
 
 def main(upto=None, export=True):

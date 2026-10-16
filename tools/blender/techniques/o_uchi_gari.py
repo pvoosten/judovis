@@ -406,6 +406,8 @@ def check():
         print(f"  {name:40} {gap * 100:5.1f} cm at {t:.2f}s")
     landing = motion.first_mat_contact("Uki", ["Hips", "Spine", "LeftHand", "LeftForearm"], frame(1.2))
     print("Uki on the mat:", landing)
+    motion.print_limits(motion.limit_violations("Tori"), "Joint limits Tori")
+    motion.print_limits(motion.limit_violations("Uki"), "Joint limits Uki")
 
 
 def main(upto=None, export=True):

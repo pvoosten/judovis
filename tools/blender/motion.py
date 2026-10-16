@@ -244,6 +244,86 @@ def print_sliding(report, title="Foot sliding"):
               f"({e['first']:.2f}-{e['last']:.2f}s)")
 
 
+# --- joint limits ------------------------------------------------------------------------------
+
+# Anatomical range of each bone's own delta (Godot Euler XYZ degrees, character frame: X = right,
+# Y = up, -Z = facing; a bone's rest pose is the T-pose, legs hanging): (min, max) per axis, a little
+# generous. Bones not listed are not checked (arms: see tt.hinge, which makes the elbow a hinge).
+JOINT_LIMITS = {
+    "Spine": ((-60, 30), (-35, 35), (-30, 30)),
+    "Chest": ((-45, 25), (-35, 35), (-30, 30)),
+    "Neck": ((-45, 40), (-60, 60), (-30, 30)),
+    "Head": ((-30, 30), (-50, 50), (-30, 30)),
+    "LeftUpLeg": ((-35, 125), (-50, 50), (-50, 50)),
+    "RightUpLeg": ((-35, 125), (-50, 50), (-50, 50)),
+    # knee: bends the heel towards the buttocks only (X < 0), hardly any twist
+}
+
+# Knee: the shin swings backwards in the thigh's own frame (heel towards the buttocks), at most
+# KNEE_MAX_BEND degrees, hardly bends forwards (hyperextension) and hardly sideways.
+KNEE_MAX_BEND = 155.0
+KNEE_HYPEREXTENSION = 3.0
+KNEE_SIDEWAYS = 12.0
+
+
+def knee_angles(pb):
+    """(bend, hyperextension, sideways) in degrees of a knee: where the shin points, in the thigh's frame
+    (rest: straight down, -Y; backwards = +Z). bend = angle from straight, hyperextension = how far
+    it points forwards past straight (else 0), sideways = angle out of the thigh's sagittal plane."""
+    d = tt.delta(pb) @ Vector((0, -1, 0))
+    bend = math.degrees(math.acos(max(-1.0, min(1.0, -d.y))))
+    forwards = math.degrees(math.asin(max(-1.0, min(1.0, -d.z)))) if d.z < 0 else 0.0
+    sideways = math.degrees(math.asin(max(-1.0, min(1.0, abs(d.x)))))
+    return bend, forwards, sideways
+
+
+def limit_violations(arm, frame_from=None, frame_to=None, step=2, tolerance=2.0):
+    """Frames where a bone's delta leaves JOINT_LIMITS by more than `tolerance` degrees. Returns
+    {"Tori:LeftLeg X": dict(excess, time, value, first, last)} (excess = degrees beyond the range,
+    worst case); empty when everything is within range."""
+    scene = bpy.context.scene
+    arm_obj = tt._arm(arm)
+    frame_from = scene.frame_start if frame_from is None else frame_from
+    frame_to = scene.frame_end if frame_to is None else frame_to
+    report = {}
+    for f in range(frame_from, frame_to + 1, step):
+        scene.frame_set(f)
+        for bone, ranges in JOINT_LIMITS.items():
+            angles = tt.godot_euler(tt.delta(arm_obj.pose.bones[bone]))
+            for axis, (a, (lo, hi)) in zip("XYZ", zip(angles, ranges)):
+                excess = max(lo - a, a - hi)
+                if excess > tolerance:
+                    t = f / scene.render.fps
+                    e = report.setdefault(f"{arm_obj.name}:{bone} {axis}",
+                                          dict(excess=0.0, time=t, value=a, first=t, last=t))
+                    e["last"] = t
+                    if excess > e["excess"]:
+                        e.update(excess=excess, time=t, value=a)
+        for side in ("Left", "Right"):
+            bend, forwards, sideways = knee_angles(arm_obj.pose.bones[f"{side}Leg"])
+            for axis, a, excess in (("bend", bend, bend - KNEE_MAX_BEND),
+                                    ("hyperextension", forwards, forwards - KNEE_HYPEREXTENSION),
+                                    ("sideways", sideways, sideways - KNEE_SIDEWAYS)):
+                if excess > tolerance:
+                    t = f / scene.render.fps
+                    e = report.setdefault(f"{arm_obj.name}:{side}Leg {axis}",
+                                          dict(excess=0.0, time=t, value=a, first=t, last=t))
+                    e["last"] = t
+                    if excess > e["excess"]:
+                        e.update(excess=excess, time=t, value=a)
+    return report
+
+
+def print_limits(report, title="Joint limits"):
+    if not report:
+        print(f"{title}: all within range.")
+        return
+    print(f"{title}:")
+    for name, e in sorted(report.items()):
+        print(f"  {name:22} {e['excess']:5.1f} deg beyond the range ({e['value']:6.1f} at {e['time']:.2f}s, "
+              f"{e['first']:.2f}-{e['last']:.2f}s)")
+
+
 # --- timing ------------------------------------------------------------------------------------
 
 def ease(frame, easing="EASE_IN_OUT", mode="SINE", judoka=("Tori", "Uki")):

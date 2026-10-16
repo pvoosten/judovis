@@ -22,7 +22,7 @@ namespace JudoVisualizer.Dev;
 /// &lt;out&gt;/&lt;technique&gt;_sheet.png: a row per time, a column per view, each labelled
 /// "time view" (default cell size 480x270). --zoom=1.5 moves the fixed views closer.
 /// --focus=0.2,0.2,0.3 aims the fixed views at another point (Godot space; default 0,0.9,0.2,
-/// standing height): ground techniques.
+/// standing height): ground techniques. --bg=#b3202a hides the tatami and uses a flat background colour.
 /// </summary>
 public partial class PosePreview : Node
 {
@@ -65,6 +65,11 @@ public partial class PosePreview : Node
         var main = GD.Load<PackedScene>("res://scenes/main/Main.tscn").Instantiate<Node3D>();
         AddChild(main);
         main.GetNode<CanvasLayer>("UI").Visible = args.ContainsKey("ui");
+        if (args.TryGetValue("bg", out var bg))
+        {
+            main.GetNode<MeshInstance3D>("Tatami").Visible = false;
+            main.GetNode<WorldEnvironment>("WorldEnvironment").Environment.BackgroundColor = Color.FromHtml(bg);
+        }
         var player = main.GetNode<JudoTechniquePlayer>("Player");
         player.Load(TechniqueLoader.Load($"{TechniqueLoader.BuiltInDirectory}/{name}.yaml"));
         var camera = main.GetNode<Camera3D>("Camera3D");

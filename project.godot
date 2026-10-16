@@ -13,6 +13,10 @@ config_version=5
 config/name="Judo Technique Visualizer"
 run/main_scene="res://scenes/main/Main.tscn"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
+config/icon="res://assets/branding/icon.png"
+boot_splash/bg_color=Color(0.7, 0.125, 0.165, 1)
+boot_splash/image="res://assets/branding/splash.png"
+boot_splash/fullsize=true
 
 [dotnet]
 

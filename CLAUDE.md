@@ -117,6 +117,7 @@ A technique's kyu is the belt whose exam lists it; 6th kyu has none. Shime/kanse
 Phases 0-7 done (Blender MCP, judoka models, data model, player, cameras, HUD, catalogue, weight and
 contact tools). Animated: ippon-seoi-nage, koshi-guruma (phase 8 pilot), o-uchi-gari (3.0 cm summed), kuzure-kesa-gatame (passes all reports; hold 3.0 s), o-soto-gari. Known issues:
 - Uki's POV camera can end up inside Tori's head when heads touch.
+- Kuzure-kesa-gatame: 16.3 cm summed over 9 pairs, worst 6.0 cm; Tori hovers upright on his knees above Uki while sitting through (about 0.9-1.1 s, feedback open); Uki's right elbow twist at 2.08 s unverified (open).
 - Ippon-seoi-nage: overlaps up to ~3 cm beyond tolerance (16 cm summed over 25 pairs, most under
   1 cm: Uki's right arm past Tori's head at 1.72 s, thighs as Tori steps in at 0.46 s and turns at
   0.9-1.3 s, Tori's hook arm past Uki's left arm and hips at 0.5-0.66 s), Tori's feet creep ~1 cm,

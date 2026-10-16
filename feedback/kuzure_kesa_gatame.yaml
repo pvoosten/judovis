@@ -1,0 +1,28 @@
+- technique: kuzure_kesa_gatame
+  time: 0.97
+  phase: Controle (Arm)
+  who: tori
+  bone: spine
+  text: tori zweeft in de lucht
+  status: open
+- technique: kuzure_kesa_gatame
+  time: 1.06
+  phase: Osaekomi (Houdgreep)
+  who: uki
+  bone: left_arm
+  text: uki beweegt arm zonder dat tori hem aanraakt
+  status: done
+- technique: kuzure_kesa_gatame
+  time: 2.08
+  phase: Ontsnappingspoging
+  who: tori
+  bone: right_hand
+  text: rechterhand moet kraag van uki vast houden
+  status: done
+- technique: kuzure_kesa_gatame
+  time: 2.08
+  phase: Ontsnappingspoging
+  who: uki
+  bone: right_arm
+  text: elleboog onnatuurlijk gedraaid
+  status: open

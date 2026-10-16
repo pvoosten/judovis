@@ -65,6 +65,8 @@ ALLOW = (
     # do not model), along his ribs; Uki's bridge presses his chest up into it.
     + _pairs(["Tori:RightArm", "Tori:RightForearm", "Tori:RightHand"], ["Uki:Chest", "Uki:Neck"], 0.05, 0.4)
     + _pairs(["Tori:RightArm", "Tori:RightForearm", "Tori:RightHand"], ["Uki:Spine"], 0.03, 0.4)
+    # The collar grip: Tori's hand and forearm lie on Uki's neck, left shoulder and chest (the gi sinks in).
+    + _pairs(["Tori:RightHand", "Tori:RightForearm"], ["Uki:Head", "Uki:Neck", "Uki:Chest", "Uki:LeftShoulder"], 0.12, HOLD)
     + _pairs(["Tori:RightArm", "Tori:RightForearm", "Tori:RightHand"], ["Uki:LeftShoulder", "Uki:LeftArm"], 0.08, 0.4)
     # Uki pushes against Tori's body with his right hand while Tori takes the arm.
     + _pairs(["Uki:RightHand"], ["Tori:Spine", "Tori:Chest", "Tori:Hips"], 0.04, 0.4)
@@ -222,7 +224,7 @@ def kesa(base=0.0, lift=0.0):
 POLES = [None] + [(x, y, z) for x in (-1, 0, 1) for y in (-1, 0, 1) for z in (-1, 0, 1) if x or y or z]
 
 
-ARM_ELBOW, ARM_HAND = (-0.22, 0.30, 0.52), (-0.42, 0.08, 0.62)
+ARM_ELBOW, ARM_HAND = (-0.22, 0.30, 0.52), (-0.04, 0.30, 0.42)  # hand: on Uki's left collar
 UKI_ELBOW, UKI_HAND = (0.32, 0.40, 0.70), (0.55, 0.55, 0.62)
 UKI_LEFT_ELBOW = (-0.40, 0.42, 0.45)
 HIPS, SPINE, CHEST, NECK = (0.42, 0.15, 0.25), (0.30, 0.33, 0.33), (0.08, 0.40, 0.42), (-0.10, 0.38, 0.55)
@@ -274,6 +276,22 @@ def on_mat(j, f0, f1, depth=0.015):
             tt.key(j, f, bones=[])
 
 
+HOLD_AT = 1.4
+
+
+def freeze(j, bones, f0, f1):
+    """Bones keep their pose of frame f0 up to frame f1 (a key at f1 with the same rotations)."""
+    scene = bpy.context.scene
+    arm = bpy.data.objects[j]
+    scene.frame_set(f0)
+    saved = {b: arm.pose.bones[b].rotation_quaternion.copy() for b in bones}
+    scene.frame_set(f1)
+    for b, q in saved.items():
+        arm.pose.bones[b].rotation_quaternion = q
+    tt._update()
+    tt.key(j, f1, bones=bones, root=False)
+
+
 def shape():
     """ease -> plant -> hold -> avoid (see tools/blender/README.md)."""
     for kf in KEYFRAMES[:-1]:
@@ -300,14 +318,20 @@ def shape():
     motion.plant("Tori", "Left", frame(2.3), frame(2.9))
     motion.step("Tori", "Left", frame(2.9), frame(3.3), height=0.04, to=narrow)
     motion.plant("Tori", "Left", frame(3.3), end)
+    # Uki's left arm stays where it lay until Tori's right arm is under it (nothing touches it before).
+    freeze("Uki", ["LeftArm", "LeftForearm"], frame(0.7), frame(1.0))
     # Tori keeps the sleeve on every frame.
     motion.hold("Tori", "LeftHand", "Uki", "RightSleeveGrip", frame(0.7), end)
     for _ in range(2):
         motion.avoid("Tori", ["RightArm", "RightForearm"], "Uki", frame(0.4), end, ALLOW, max_rate=6)
         motion.avoid("Uki", ["LeftArm", "LeftForearm"], "Tori", frame(0.4), end, ALLOW, max_rate=6)
         motion.avoid("Uki", ["RightArm", "RightForearm"], "Tori", frame(0.4), end, ALLOW, max_rate=6)
+    # Tori's right hand holds Uki's collar (left lapel) from the hold on (after the arm search and after the
+    # elbow hinge, which twists the forearm).
+    motion.hold("Tori", "RightHand", "Uki", "LeftLapelGrip", frame(HOLD_AT), end)
     for j in ("Tori", "Uki"):
         motion.hinge_elbows(j, 0, end)
+    motion.hold("Tori", "RightHand", "Uki", "LeftLapelGrip", frame(HOLD_AT), end)
 
 
 def check():

@@ -519,6 +519,9 @@ def shape():
         motion.avoid("Tori", ["LeftArm"], "Uki", frame(0.0), frame(1.3), ALLOW, step=8, max_rate=3)
         motion.hold("Tori", "LeftHand", "Uki", "RightSleeveGrip", frame(0.0), frame(2.5))
     motion.hold("Uki", "LeftHand", "Tori", "RightSleeveGrip", frame(0.0), frame(0.95))
+    # The other gripping arms swing their elbows clear of the arm that moved last.
+    motion.clear_arm("Uki", "Right", "Tori", frame(0.0), frame(1.5), max_rate=25)
+    motion.clear_arm("Tori", "Left", "Uki", frame(0.0), frame(1.3), max_rate=25)
 
 
 def check():

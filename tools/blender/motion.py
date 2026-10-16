@@ -483,14 +483,108 @@ def _chain(arm, bone, length):
     return names
 
 
-def hold(arm, hand, target_arm, target_bone, frame_from, frame_to, chain=3, pole=None):
+def _fixed_bodies(arm_obj, other_obj, chain):
+    """Capsules and bone lines that stay put while `chain` (bone names) is posed, for body_excess()."""
+    import contact
+    own_caps = contact.world_capsules(arm_obj)
+    own_bones = contact.world_bones(arm_obj)
+    return dict(their_caps=contact.world_capsules(other_obj), their_bones=contact.world_bones(other_obj),
+                own_caps={k: v for k, v in own_caps.items() if k not in chain},
+                own_bones={k: v for k, v in own_bones.items() if k not in chain})
+
+
+def body_excess(arm_obj, chain, fixed):
+    """Summed depth (m) of bone lines inside capsules, strictly (contact.bodies_at): chain bones in the
+    partner's or their own non-neighbour capsules, and fixed bones (partner's, own non-chain) in the
+    chain's capsules."""
+    import contact
+    shapes, near = contact.capsules(), contact.neighbours()
+    m = arm_obj.matrix_world
+    mine_bones, mine_caps = {}, {}
+    for b in chain:
+        pb = arm_obj.pose.bones[b]
+        p0, p1, r = shapes[b]
+        bm = m @ pb.matrix
+        mine_bones[b] = (m @ pb.head, m @ pb.tail)
+        mine_caps[b] = (bm @ Vector(p0), bm @ Vector(p1), r)
+    total = 0.0
+    for b, bone in mine_bones.items():
+        for cap in fixed["their_caps"].values():
+            total += max(0.0, contact.bone_depth(bone, cap) - contact.bone_tolerance(b, False))
+        for c, cap in fixed["own_caps"].items():
+            if c not in near[b]:
+                total += max(0.0, contact.bone_depth(bone, cap) - contact.BONE_TOLERANCE)
+    for c, cap in mine_caps.items():
+        for k, bone in fixed["their_bones"].items():
+            total += max(0.0, contact.bone_depth(bone, cap) - contact.bone_tolerance(k, False))
+        for k, bone in fixed["own_bones"].items():
+            if k not in near[c]:
+                total += max(0.0, contact.bone_depth(bone, cap) - contact.BONE_TOLERANCE)
+    return total
+
+
+def _swivel(arm_obj, side, angle):
+    """Rotate the arm (upper arm and forearm) about the line shoulder -> wrist by `angle` degrees: the
+    elbow swings, the wrist and the hand stay where they are."""
+    pbs = [arm_obj.pose.bones[f"{side}{b}"] for b in ("Arm", "Forearm", "Hand")]
+    old = [pb.matrix.copy() for pb in pbs]
+    s, w = pbs[0].head.copy(), pbs[2].head.copy()
+    rot = Matrix.Translation(s) @ Quaternion((w - s).normalized(), math.radians(angle)).to_matrix().to_4x4()         @ Matrix.Translation(-s)
+    for pb, m in zip(pbs[:2], old[:2]):
+        pb.matrix = rot @ m
+        _update()
+    pbs[2].matrix = old[2]
+    _update()
+
+
+def _clear_arm(arm_obj, other_obj, side, prev, first, max_rate):
+    """Swivel the arm at the current frame (see hold); returns the chosen angle."""
+    names = [f"{side}{b}" for b in ("Arm", "Forearm", "Hand")]
+    fixed = _fixed_bodies(arm_obj, other_obj, names)
+    base = {n: arm_obj.pose.bones[n].matrix.copy() for n in names}
+    best = None
+    for a in range(-180, 181, 10):
+        if not first and abs(a - prev) > max_rate:
+            continue
+        _swivel(arm_obj, side, a)
+        score = body_excess(arm_obj, names, fixed) + 0.0002 * abs(a - prev)
+        for n in names:  # undo for the next candidate, parents first
+            arm_obj.pose.bones[n].matrix = base[n]
+            _update()
+        if best is None or score < best[0] - 1e-9:
+            best = (score, a)
+    _swivel(arm_obj, side, best[1])
+    return best[1]
+
+
+def clear_arm(arm, side, other, frame_from, frame_to, max_rate=10.0):
+    """Swing the elbow of an arm that already holds its grip (wrist and hand stay) to where no bone of
+    it lies in a body and no body's bone in it (contact.bodies_at), at most `max_rate` degrees per
+    frame. Run after anything that moves the arms; hold() does this by itself."""
+    scene = bpy.context.scene
+    arm_obj, other_obj = tt._arm(arm), tt._arm(other)
+    prev = 0.0
+    for f in range(frame_from, frame_to + 1):
+        scene.frame_set(f)
+        prev = _clear_arm(arm_obj, other_obj, side, prev, f == frame_from, max_rate)
+        tt.key(arm, f, bones=[f"{side}{b}" for b in ("Arm", "Forearm", "Hand")], root=False)
+
+
+def hold(arm, hand, target_arm, target_bone, frame_from, frame_to, chain=3, pole=None, clear=True,
+         max_rate=10.0):
     """Keep a gripping hand on a grip bone of the other judoka on every frame (IK on the arm chain),
-    not only at the keyframes."""
+    not only at the keyframes. `clear`: swing the elbow about the shoulder-wrist line (the hand stays
+    on its grip, at most `max_rate` degrees per frame) to where no bone of the arm lies in a body
+    and no body's bone in the arm (see clear_arm); needs the three-bone arm chain."""
     scene = bpy.context.scene
     bones = _chain(arm, hand, chain)
+    arm_obj, other_obj = tt._arm(arm), tt._arm(target_arm)
+    prev = 0.0
     for f in range(frame_from, frame_to + 1):
         scene.frame_set(f)
         tt.ik(arm, hand, target_arm, target_bone, chain, pole)
+        if clear and chain == 3:
+            prev = _clear_arm(arm_obj, other_obj, hand[:-4], prev, f == frame_from, max_rate)
         tt.key(arm, f, bones=bones, root=False)
 
 
@@ -515,7 +609,6 @@ def avoid(arm, bones, other, frame_from, frame_to, allow=(), step=12, steps=3, s
     other_obj = tt._arm(other)
     chain = _descendants(arm_obj, bones[0])
     shapes = contact.capsules()
-    near = contact.neighbours()
     limit = step * steps
     previous = {b: (0.0, 0.0) for b in bones}
     remaining = {}
@@ -541,33 +634,7 @@ def avoid(arm, bones, other, frame_from, frame_to, allow=(), step=12, steps=3, s
                     tolerances[key] = contact.tolerance_for(f"{arm}:{b}", contact.MAT, t, allow)
                 total += max(0.0, depth - tolerances[key])
         if bodies:
-            total += body_excess(fixed)
-        return total
-
-    def body_excess(fixed):
-        """Bone lines inside capsules (strictly): chain bones in other bodies or own non-neighbour
-        capsules, and fixed bones (partner's, own non-chain) in the chain's capsules."""
-        m = arm_obj.matrix_world
-        mine_bones, mine_caps = {}, {}
-        for b in chain:
-            pb = arm_obj.pose.bones[b]
-            p0, p1, r = shapes[b]
-            bm = m @ pb.matrix
-            mine_bones[b] = (m @ pb.head, m @ pb.tail)
-            mine_caps[b] = (bm @ Vector(p0), bm @ Vector(p1), r)
-        total = 0.0
-        for b, bone in mine_bones.items():
-            for c, cap in fixed["their_caps"].items():
-                total += max(0.0, contact.bone_depth(bone, cap) - contact.bone_tolerance(b, False))
-            for c, cap in fixed["own_caps"].items():
-                if c not in near[b]:
-                    total += max(0.0, contact.bone_depth(bone, cap) - contact.BONE_TOLERANCE)
-        for c, cap in mine_caps.items():
-            for k, bone in fixed["their_bones"].items():
-                total += max(0.0, contact.bone_depth(bone, cap) - contact.bone_tolerance(k, False))
-            for k, bone in fixed["own_bones"].items():
-                if k not in near[c]:
-                    total += max(0.0, contact.bone_depth(bone, cap) - contact.BONE_TOLERANCE)
+            total += body_excess(arm_obj, chain, fixed)
         return total
 
     def tilt(pb, base, a1, a2, u, v):
@@ -588,11 +655,7 @@ def avoid(arm, bones, other, frame_from, frame_to, allow=(), step=12, steps=3, s
         tolerances = {}
         fixed = None
         if bodies:
-            own_caps = contact.world_capsules(arm_obj)
-            own_bones = contact.world_bones(arm_obj)
-            fixed = dict(their_caps=theirs, their_bones=contact.world_bones(other_obj),
-                         own_caps={k: v for k, v in own_caps.items() if k not in chain},
-                         own_bones={k: v for k, v in own_bones.items() if k not in chain})
+            fixed = _fixed_bodies(arm_obj, other_obj, chain)
         starts = {b: eased(previous[b]) for b in bones}
         if all(p == (0.0, 0.0) for p in previous.values()) and excess(t, theirs, tolerances, fixed) == 0:
             previous = starts

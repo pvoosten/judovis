@@ -16,7 +16,7 @@ namespace JudoVisualizer.UI;
 /// </summary>
 public partial class PoseFeedback : PanelContainer
 {
-    private const float PickMetres = 0.07f;
+    private const float PickMetres = 0.12f;
     private const float ClickPixels = 5f;
 
     private JudoTechniquePlayer _player = null!;
@@ -40,6 +40,7 @@ public partial class PoseFeedback : PanelContainer
         Visible = false;
         BuildMarker();
         BuildPanel();
+        BuildHint();
 
         player.TechniqueChanged += () =>
         {
@@ -247,6 +248,21 @@ public partial class PoseFeedback : PanelContainer
         scroll.AddChild(_list);
         column.AddChild(scroll);
         Deselect();
+    }
+
+    /// <summary>Always-visible reminder that the tool exists (it starts hidden).</summary>
+    private void BuildHint()
+    {
+        var hint = UiStyle.Label("F2 = pose-feedback", 12, UiStyle.Muted);
+        hint.MouseFilter = MouseFilterEnum.Ignore;
+        hint.AnchorLeft = hint.AnchorRight = 1;
+        hint.OffsetLeft = -160;
+        hint.OffsetRight = -10;
+        hint.OffsetTop = 10;
+        hint.GrowHorizontal = GrowDirection.Begin;
+        hint.HorizontalAlignment = HorizontalAlignment.Right;
+        GetParent<Control>().AddChild(hint);
+        VisibilityChanged += () => hint.Visible = !Visible;
     }
 
     private void BuildMarker()

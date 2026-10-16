@@ -1,0 +1,42 @@
+- technique: koshi_guruma
+  time: 0.56
+  phase: Kuzushi (Balansverstoring)
+  who: tori
+  bone: right_forearm
+  text: elleboog onnatuurlijk gedraaid
+  status: done
+- technique: koshi_guruma
+  time: 0.64
+  phase: Tsukuri (Instap & Draai)
+  who: tori
+  bone: right_forearm
+  text: hand achter de rug van uki
+  status: done
+- technique: koshi_guruma
+  time: 0.77
+  phase: Tsukuri (Instap & Draai)
+  who: tori
+  bone: right_forearm
+  text: hand beweegt door eigen lichaam van uki
+  status: done
+- technique: koshi_guruma
+  time: 1.47
+  phase: Kake (Worp)
+  who: uki
+  bone: hips
+  text: hand van uki beweegt door lichaam van tori
+  status: done
+- technique: koshi_guruma
+  time: 1.54
+  phase: Kake (Worp)
+  who: tori
+  bone: right_hand
+  text: hand van uki heeft tori niet vast
+  status: done
+- technique: koshi_guruma
+  time: 1.82
+  phase: Nage (Rotatie)
+  who: tori
+  bone: right_arm
+  text: arm van uki beweegt achteruit in plaats van vooruit
+  status: done

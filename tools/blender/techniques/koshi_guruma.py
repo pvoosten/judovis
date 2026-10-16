@@ -115,11 +115,12 @@ def uki_arm_swing(w):
     uki_arm_held(ahead=0.4 + 0.25 * s * s * (3 - 2 * s))
 
 
-def uki_arm_under_armpit():
-    """Uki's right arm pulled by the sleeve under Tori's raised right arm, across Tori's chest."""
+def uki_arm_under_armpit(drop=0.0):
+    """Uki's right arm pulled by the sleeve under Tori's raised right arm, across Tori's chest
+    (`drop`: lower, so that it clears Tori's upper arm as Uki is lifted)."""
     chest = tt.bone_pos("Tori", "Chest")
-    tt.aim_at("Uki", "RightArm", chest + facing("Tori") * 0.30 + right_of("Tori") * 0.05 - Vector((0, 0, 0.10)))
-    tt.aim_at("Uki", "RightForearm", chest + facing("Tori") * 0.45 - right_of("Tori") * 0.15 - Vector((0, 0, 0.12)))
+    tt.aim_at("Uki", "RightArm", chest + facing("Tori") * 0.30 + right_of("Tori") * 0.05 - Vector((0, 0, 0.10 + drop)))
+    tt.aim_at("Uki", "RightForearm", chest + facing("Tori") * 0.45 - right_of("Tori") * 0.15 - Vector((0, 0, 0.12 + drop)))
 
 
 def hips_past(offset=HIP_PAST):
@@ -239,7 +240,7 @@ def kake():
            + right_of("Tori") * 0.04 + Vector((0, 0, 0.10)))
     push_back(Vector((0, 0, 1)) - facing("Tori"))
     uki_left_arm_along_side()
-    uki_arm_under_armpit()
+    uki_arm_under_armpit(drop=0.12)
     tt.ik("Tori", "LeftHand", "Uki", "RightSleeveGrip")
     arm_round_neck()
 

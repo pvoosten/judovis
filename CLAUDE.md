@@ -121,9 +121,11 @@ contact tools). Animated: ippon-seoi-nage, koshi-guruma (phase 8 pilot), o-uchi-
   1 cm: Uki's right arm past Tori's head at 1.72 s, thighs as Tori steps in at 0.46 s and turns at
   0.9-1.3 s, Tori's hook arm past Uki's left arm and hips at 0.5-0.66 s), Tori's feet creep ~1 cm,
   Tori 1.2 cm off balance at the 0.44 s / 0.88 s weight-shift window boundaries.
-- Koshi-guruma: 95 cm summed over 34 pairs (worst 11 cm): Tori's right forearm round Uki's neck slides
-  down Uki's back at kake (1.3-1.46 s), Tori's left hand/forearm into Uki's chest and held arm at the
-  fall (1.84-2.02 s), the arm moving from lapel to neck (0.6-0.9 s). Tori could bow deeper at kake.
+- Koshi-guruma: 81 cm summed over 28 pairs (worst 10.7 cm): Tori's left hand/forearm into Uki's chest and
+  left arm at the fall (1.84-2.0 s), Tori's upper arm against Uki's held forearm (1.44-1.74 s, 8.6 cm).
+  Tori's right arm: hand on Uki's back collar (two-link solve in `arm_round_neck`), swings there from the
+  lapel 0.4-0.76 s (`arm_to_neck`); Uki's held arm swings ahead during the fall (`uki_arm_swing`).
+  Tori could bow deeper at kake.
 - O-soto-gari: 16.4 cm summed over 11 pairs, worst 4.7 cm (Definition of done item 12 wants <= 3 cm):
   Tori's sleeve forearm crosses Uki's gripping forearm at the step-in (0.3-0.4 s); a wider step fixes it
   but puts Tori ~6 cm off balance, an elbow pole lifts the elbow to shoulder height. Kuzushi onto

@@ -154,6 +154,12 @@ contact tools). Animated: ippon-seoi-nage, koshi-guruma (phase 8 pilot), o-uchi-
   1.1 cm (DoD 13 marginal). Poses are koshi-guruma's with the arm on the waist: Uki's lift is not yet clearly
   "floating" (Tori could stay higher with straighter legs). Roughly 11 of 13 DoD items met.
 
+- Kami-shiho-gatame: 11.9 cm summed over 5 pairs, worst 4.8 cm beyond tolerance (Definition of done item 12
+  wants <= 3 cm): Tori's left arm against Uki's left arm while he slides in (1.5-1.7 s) and Tori's left arm
+  against Uki's left shoulder, Tori's hips against Uki's head in the bridge (2.7 s, 1 cm). Tori's hands
+  are on Uki's belt beside the hips (IK onto points, no belt-side grip bones); Uki's arms lie wide on the mat.
+  Hold 3.0 s (1.8-4.8 s). Slow motion (item 10) and the 0.9 s entry not reviewed in the app yet.
+
 - O-uchi-gari: 3.0 cm summed over 3 pairs, worst 1.5 cm (Uki's sleeve forearm on Tori's forearm up
   to the reap, thighs as Tori steps down at 1.46 s); grip gaps <= 0.2 cm (`check()` reports them).
   Tori lets go of the sleeve as Uki lands (1.56 s; the sleeve is out of reach on the mat) and stands

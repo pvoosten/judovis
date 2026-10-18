@@ -10,7 +10,8 @@ namespace JudoVisualizer.UI;
 /// Root of the HUD (scenes/ui/Hud.tscn): connects the technique browser, caption and playback bar
 /// to the <see cref="JudoTechniquePlayer"/> and <see cref="CameraManager"/>.
 /// Keyboard: Space = play/pause, comma/period = step one frame back/forward,
-/// F2 = pose feedback panel (dev: comment on a bone while paused, see <see cref="PoseFeedback"/>).
+/// F2 = pose feedback panel (dev: comment on a bone while paused, see <see cref="PoseFeedback"/>),
+/// F3 = pose editor (dev: adjust the judoka and insert keyframes, see <see cref="PoseEditor"/>).
 /// </summary>
 public partial class HudController : Control
 {
@@ -56,6 +57,11 @@ public partial class HudController : Control
             var feedback = new PoseFeedback();
             AddChild(feedback);
             feedback.Bind(Player, CameraManager);
+            var editor = new PoseEditor(); // after the browser's TechniqueChanged handler: it swaps in the edited technique
+            AddChild(editor);
+            editor.Bind(Player, CameraManager);
+            feedback.Opened += editor.Close; // one click tool at a time
+            editor.Opened += feedback.Close;
         }
     }
 

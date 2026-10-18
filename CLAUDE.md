@@ -29,6 +29,7 @@ The Godot project lives at the repo root (`res://` = repo root).
 | `tools/blender/` | Build/export the judoka, technique tools, `techniques/<technique>.py`; see its `README.md` |
 | `tools/feedback/` | FeedbackToPrompt: turns `feedback/<technique>.yaml` comments into a Claude Code prompt |
 | `feedback/` | Bone comments written by the app (F2); `.gdignore`, not exported |
+| `edits/` | Pose edits made in the app (F3), `<technique>.json`; `.gdignore`, not exported |
 | `docs/` | Project history |
 
 Conventions:
@@ -65,6 +66,19 @@ $G --path . res://scenes/dev/PosePreview.tscn -- --technique=<t> --times=0.4,1.1
 Pause, press F2, click a bone of Tori or Uki, type a comment: saved in `feedback/<technique>.yaml`.
 `dotnet run --project tools/feedback -- <technique|all> [--mark-done]` prints one compact prompt per technique
 (also `build/feedback/<technique>.md`); `--mark-done` marks the emitted comments done.
+
+## Pose editor (dev)
+
+F3: step to a keyframe (◀ ▶ include in-betweens; "Keyframe invoegen" adds one at the playhead), click a bone
+of Tori or Uki (or pick it, "Wortel" = root position + rotation), set it with the sliders. The range says
+over which keyframes the change fades in and out: 0 % at "van", 100 % from "volledig vanaf" to "volledig tot",
+0 % at "tot" (smooth or linear). Ctrl+Z undoes. Saved at once in `edits/<technique>.json` and shown live
+(`PoseEditing.Apply` on top of the YAML, also in PosePreview).
+- **Edits are more correct than the script.** Every technique's `main()` calls `edits.apply(NAME)` after
+  `shape()` and before `check()`/export (`tools/blender/edits.py`, same maths as `src/Data/PoseEditing.cs`), so
+  they end up in the YAML and the reports. Never undo or work around an edit; if a report problem comes from
+  one, report it to the user. Keep the edits file after the run (edits are absolute targets: applying them
+  again to the baked YAML changes nothing).
 
 ## Authoring techniques
 

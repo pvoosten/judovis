@@ -23,6 +23,9 @@ public partial class JudoTechniquePlayer : Node3D
 
     [Signal] public delegate void PlayingChangedEventHandler(bool playing);
 
+    /// <summary>Emitted by <see cref="ReplaceTechnique"/>: same technique, new keyframes (indices may shift).</summary>
+    [Signal] public delegate void KeyframesChangedEventHandler();
+
     /// <summary>Root node of the Tori model (an instance of Tori.glb).</summary>
     [Export] public Node3D? Tori { get; set; }
 
@@ -78,6 +81,24 @@ public partial class JudoTechniquePlayer : Node3D
             EmitSignal(SignalName.TimeChanged, 0f);
         else
             Seek(0);
+    }
+
+    /// <summary>
+    /// Swaps in an edited version of the loaded technique (pose editor): same metadata, other keyframes.
+    /// Keeps the time and play state; emits <see cref="KeyframesChanged"/>, not <see cref="TechniqueChanged"/>.
+    /// </summary>
+    public void ReplaceTechnique(Technique technique)
+    {
+        if (Technique is null || !technique.IsAnimated)
+            return;
+        Technique = technique;
+        _rigs.Clear();
+        _tracks = TechniqueTracks.Build(technique);
+        Bind(Tori, nameof(Tori), _tracks.Tori);
+        Bind(Uki, nameof(Uki), _tracks.Uki);
+        CurrentKeyframeIndex = -1; // inserted keyframes shift the indices: KeyframeChanged is emitted again
+        EmitSignal(SignalName.KeyframesChanged);
+        Seek(CurrentTime);
     }
 
     /// <summary>Phase segments of the loaded technique (empty when nothing is loaded).</summary>

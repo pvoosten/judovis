@@ -101,6 +101,7 @@ public partial class PlaybackBar : PanelContainer
             foreach (var button in _transport)
                 button.Disabled = !player.CanPlay;
         };
+        player.KeyframesChanged += () => _timeline.SetTechnique(player.Phases, player.KeyframeTimes, player.Duration);
         player.TimeChanged += time =>
         {
             _timeline.SetTime(time, player.CurrentKeyframeIndex);

@@ -16,7 +16,6 @@ namespace JudoVisualizer.UI;
 /// </summary>
 public partial class PoseFeedback : PanelContainer
 {
-    private const float PickMetres = 0.12f;
     private const float ClickPixels = 5f;
 
     private JudoTechniquePlayer _player = null!;
@@ -94,13 +93,25 @@ public partial class PoseFeedback : PanelContainer
             Select(button.Position);
     }
 
+    /// <summary>Raised when the panel opens (the HUD then closes the pose editor: one click tool at a time).</summary>
+    public event System.Action? Opened;
+
+    public void Close()
+    {
+        if (Visible)
+            Toggle();
+    }
+
     private void Toggle()
     {
         Visible = !Visible;
         if (!Visible)
             Deselect();
         else
+        {
             LoadEntries();
+            Opened?.Invoke();
+        }
     }
 
     private void Select(Vector2 mouse)
@@ -110,11 +121,7 @@ public partial class PoseFeedback : PanelContainer
         if (camera is null)
             return;
 
-        var origin = camera.ProjectRayOrigin(mouse);
-        var direction = camera.ProjectRayNormal(mouse);
-        var segments = Segments("tori").Concat(Segments("uki"))
-            .Select(s => new BoneSegment(s.Who, s.Bone, ToNumerics(s.A), ToNumerics(s.B)));
-        if (BonePicker.Pick(ToNumerics(origin), ToNumerics(direction), segments, PickMetres) is not { } hit)
+        if (BonePicking.At(_player, camera, mouse) is not { } hit)
         {
             Deselect();
             return;
@@ -199,13 +206,8 @@ public partial class PoseFeedback : PanelContainer
     private string PathForTechnique() =>
         FeedbackFile.PathFor(ProjectSettings.GlobalizePath("res://" + FeedbackExporter.FeedbackDirectory), Slug());
 
-    private IEnumerable<(string Who, string Bone, Vector3 A, Vector3 B)> Segments(string who)
-    {
-        var model = who == "tori" ? _player.Tori : _player.Uki;
-        return model is null ? [] : JudokaRig.BoneSegments(model).Select(s => (who, s.Bone, s.A, s.B));
-    }
-
-    private static System.Numerics.Vector3 ToNumerics(Vector3 v) => new(v.X, v.Y, v.Z);
+    private IEnumerable<(string Who, string Bone, Vector3 A, Vector3 B)> Segments(string who) =>
+        BonePicking.Segments(_player, who);
 
     private static string Seconds(float t) => t.ToString("0.00", CultureInfo.InvariantCulture);
 

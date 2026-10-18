@@ -23,14 +23,16 @@ import importlib  # noqa: E402
 import technique_tools as tt  # noqa: E402
 import contact  # noqa: E402
 import motion  # noqa: E402
+import edits  # noqa: E402
 import poses  # noqa: E402
-for _m in (tt, contact, motion, poses):
+for _m in (tt, contact, motion, poses, edits):
     importlib.reload(_m)
 from poses import (ankles_mid, arms_ready, axis, crouch, facing, frame, grip, lerp, on_toes,  # noqa: E402
                    right_of, stance, stand, uki_arm_held, uki_left_arm_along_side, uki_left_arm_on_back,
                    GRIP_DISTANCE)
 
-OUT = os.path.normpath(os.path.join(TOOLS, "..", "..", "data", "techniques", "ippon_seoi_nage.yaml"))
+NAME = "ippon_seoi_nage"
+OUT = os.path.normpath(os.path.join(TOOLS, "..", "..", "data", "techniques", f"{NAME}.yaml"))
 
 META = dict(technique_name="Ippon Seoi-nage", dutch_name="Schouderworp aan één arm", waza_group="nage_waza",
             category="Te-waza (Handworp)", code="N4-3", difficulty="Medium",
@@ -485,6 +487,7 @@ def main(upto=None, export=True):
     scene.frame_start, scene.frame_end = 0, frame(META["duration_seconds"])
     if upto is None:
         shape()
+        edits.apply(NAME)  # pose edits from the app (F3) win over the script
         check()
         if export:
             return tt.export_yaml(OUT, META, [{k: v for k, v in kf.items() if k != "pose"} for kf in KEYFRAMES])

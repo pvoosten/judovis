@@ -26,7 +26,8 @@ sys.path.insert(0, os.path.normpath(TOOLS))
 import technique_tools as tt  # noqa: E402
 import contact  # noqa: E402
 import motion  # noqa: E402
-for _m in (tt, contact, motion):
+import edits  # noqa: E402
+for _m in (tt, contact, motion, edits):
     importlib.reload(_m)
 
 NAME = "o_soto_gari"
@@ -560,6 +561,7 @@ def main(upto=None, export=True):
     scene.frame_start, scene.frame_end = 0, frame(META["duration_seconds"])
     if upto is None:
         shape()
+        edits.apply(NAME)  # pose edits from the app (F3) win over the script
         check()
         if export:
             return tt.export_yaml(OUT, META, [{k: v for k, v in kf.items() if k != "pose"} for kf in KEYFRAMES])

@@ -27,7 +27,12 @@ Check the numbers first; take a sheet only for the keyframes in doubt.
 `META` -> `ALLOW` (allowed contacts) -> pose helpers -> one pose function per keyframe -> `KEYFRAMES`
 -> `shape()` -> `check()` -> `main(upto=None, export=True)` (the runner calls `main`).
 `main` clears animation, for each keyframe: `frame_set`, `reset` both, call the pose, `key` both;
-then `shape()`, `check()`, `export_yaml`.
+then `shape()`, `edits.apply(NAME)`, `check()`, `export_yaml`.
+
+`edits.apply(NAME)` applies the user's pose edits from the app (F3, `edits/<technique>.json`): absolute
+targets for a bone / the root at an anchor keyframe, faded in and out over a range, keyed on every frame of
+the range. They win over the script: don't move the call, don't counteract them in `shape()`. It prints a
+"Pose edits" report header; anchors and range ends are exported as keyframes (`tt.EXTRA_FRAMES`).
 
 Order inside `shape()`: `ease` -> `pivot` -> feet (`plant`/`step`) -> `shift_weight` -> `carry` ->
 `contact.resolve` -> `repose` -> `fall` -> `hold` -> `avoid` -> `limit_rate` / `smooth` -> `hinge_elbows`. Tools add keys inside segments; each reads what it

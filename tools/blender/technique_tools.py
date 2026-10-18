@@ -324,6 +324,10 @@ def _num(x, digits):
 INBETWEEN_POSITION_TOLERANCE = 0.005  # m
 INBETWEEN_ANGLE_TOLERANCE = 1.5       # degrees
 
+# Frames export_yaml always writes as (in-between) keyframes: set by edits.apply (anchors and range ends of
+# the pose edits, keyframes inserted in the app), so the app finds its edits' keyframes back in the YAML.
+EXTRA_FRAMES = set()
+
 
 def _sample_frame(judoka):
     """{role: (godot position, godot root rotation quaternion, {bone: delta quaternion})} now."""
@@ -395,7 +399,7 @@ def export_yaml(path, meta, keyframes, judoka=(("tori", "Tori"), ("uki", "Uki"))
         scene.frame_set(f)
         samples[f] = _sample_frame(judoka)
     authored = {round(kf["time"] * FPS): kf for kf in keyframes}
-    frames = _inbetween_frames(samples, authored)
+    frames = _inbetween_frames(samples, set(authored) | {f for f in EXTRA_FRAMES if 0 <= f <= end})
 
     def values(f, role):
         pos, rot_, bones = samples[f][role]

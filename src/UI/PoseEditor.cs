@@ -21,6 +21,8 @@ public partial class PoseEditor : PanelContainer
     private const float ClickPixels = 5f;
     private const float OnKeyframe = 0.006f; // s: the playhead counts as on a keyframe (time rounding)
     private const ulong GestureMs = 700;     // changes closer together than this are one undo step
+    private const ulong SaveDelayMs = 250;   // write the file once a slider drag pauses, not on every tick
+    private const ulong SaveRetryMs = 500;   // the file was in use (file watcher, virus scanner): try again
 
     private static readonly string[] Who = ["tori", "uki"];
     private static readonly string[] Axes = ["X", "Y", "Z"];
@@ -41,6 +43,9 @@ public partial class PoseEditor : PanelContainer
     private ulong _gestureAt;
     private bool _quiet; // set while the code itself updates controls or rebuilds
     private Vector2? _pressAt;
+    private bool _dirty; // _file has changes that are not in _path yet
+    private ulong _saveDue;
+    private string? _saveError;
 
     private Label _keyframe = null!;
     private Button _previous = null!, _next = null!, _insert = null!, _delete = null!, _undoButton = null!;
@@ -80,6 +85,7 @@ public partial class PoseEditor : PanelContainer
 
     private void LoadEdits()
     {
+        Flush(); // the previous technique's unsaved changes, while _path and _file are still its own
         _base = _player.Technique is { IsAnimated: true } t ? t : null;
         _undo.Clear();
         _pending = null;
@@ -88,7 +94,8 @@ public partial class PoseEditor : PanelContainer
         {
             _file = _base is null ? new PoseEditFile() : PoseEditFile.Load(_path);
         }
-        catch (System.Exception e) when (e is System.Text.Json.JsonException or System.IO.IOException)
+        catch (System.Exception e) when (e is System.Text.Json.JsonException or System.IO.IOException
+                                             or System.UnauthorizedAccessException)
         {
             GD.PushError($"{_path}: {e.Message}");
             _file = new PoseEditFile();
@@ -113,19 +120,60 @@ public partial class PoseEditor : PanelContainer
 
     private void Changed(bool rebuild = true)
     {
-        try
-        {
-            _file.Save(_path);
-        }
-        catch (System.IO.IOException e)
-        {
-            GD.PushError($"{_path}: {e.Message}");
-        }
         if (rebuild)
             Rebuild();
+        MarkDirty();
         RefreshList();
         Refresh();
     }
+
+    /// <summary>Saves shortly after the last change (see <see cref="_Process"/>).</summary>
+    private void MarkDirty()
+    {
+        _dirty = true;
+        _saveDue = Time.GetTicksMsec() + SaveDelayMs;
+    }
+
+    /// <summary>
+    /// Writes the edits file if it has changes. A failure (the file is in use) is shown in the panel and
+    /// retried later; with <paramref name="final"/> (switching technique, quitting) it retries a few times now.
+    /// </summary>
+    private void Flush(bool final = false)
+    {
+        if (!_dirty || _path.Length == 0)
+            return;
+        for (var attempt = 0; ; attempt++)
+        {
+            if (_file.TrySave(_path, out var error))
+            {
+                _dirty = false;
+                if (_saveError is not null)
+                {
+                    _saveError = null;
+                    RefreshStatus(KeyTime());
+                }
+                return;
+            }
+            if (_saveError is null)
+                GD.PushWarning($"{_path}: not saved yet, retrying ({error})");
+            _saveError = error;
+            if (!final || attempt >= 4)
+                break;
+            OS.DelayMsec(100);
+        }
+        if (final)
+            GD.PushError($"{_path}: pose edits not saved: {_saveError}");
+        _saveDue = Time.GetTicksMsec() + SaveRetryMs;
+        RefreshStatus(KeyTime());
+    }
+
+    public override void _Notification(int what)
+    {
+        if (what == NotificationWMCloseRequest)
+            Flush(final: true);
+    }
+
+    public override void _ExitTree() => Flush(final: true);
 
     /// <summary>Remembers the edits for Ctrl+Z, once per gesture (a slider drag, typing in a field).</summary>
     private void PushUndo(string gesture)
@@ -201,7 +249,10 @@ public partial class PoseEditor : PanelContainer
         Visible = !Visible;
         _marker.Visible = false;
         if (!Visible)
+        {
+            Flush();
             return;
+        }
         _player.Pause();
         Refresh();
         Opened?.Invoke();
@@ -267,19 +318,15 @@ public partial class PoseEditor : PanelContainer
         _quiet = true;
         try
         {
-            _file.Save(_path);
             _player.ReplaceTechnique(PoseEditing.Apply(_base!, _file));
             UpdateKeyframes();
             RefreshRange(KeyTime());
-        }
-        catch (System.IO.IOException e)
-        {
-            GD.PushError($"{_path}: {e.Message}");
         }
         finally
         {
             _quiet = false;
         }
+        MarkDirty();
         RefreshStatus(KeyTime());
     }
 
@@ -450,6 +497,8 @@ public partial class PoseEditor : PanelContainer
             ? $"{target}: aangepast (anker {Seconds(e.Time)} s)."
             : t is null ? $"{target}: ga naar een keyframe of voeg er een in."
             : $"{target}: nog niet aangepast; een schuif maakt een aanpassing.";
+        if (_saveError is not null)
+            _status.Text += $"\nNog niet bewaard (bestand in gebruik?), opnieuw proberen: {_saveError}";
         _undoButton.Disabled = _undo.Count == 0;
     }
 
@@ -494,6 +543,8 @@ public partial class PoseEditor : PanelContainer
 
     public override void _Process(double delta)
     {
+        if (_dirty && Time.GetTicksMsec() >= _saveDue)
+            Flush();
         if (!Visible || _base is null)
         {
             _marker.Visible = false;

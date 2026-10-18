@@ -214,6 +214,27 @@ public class PoseEditTests
     }
 
     [Fact]
+    public void TrySave_FileOpenElsewhere_FailsWithoutThrowingAndSucceedsLater()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"pose_edits_{Guid.NewGuid():N}.json");
+        var file = new PoseEditFile { Keyframes = { 1 } };
+        file.Save(path);
+        file.Keyframes.Add(2);
+
+        using (new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read)) // like a file watcher reading it
+        {
+            Assert.ThrowsAny<Exception>(() => file.Save(path)); // what crashed the editor
+            Assert.False(file.TrySave(path, out var error));
+            Assert.NotNull(error);
+            Assert.False(File.Exists(path + ".tmp"));
+        }
+
+        Assert.True(file.TrySave(path, out _));
+        Assert.Equal([1f, 2f], PoseEditFile.Load(path).Keyframes);
+        File.Delete(path);
+    }
+
+    [Fact]
     public void EmptyFile_IsDeleted()
     {
         var path = Path.Combine(Path.GetTempPath(), $"pose_edits_{Guid.NewGuid():N}.json");

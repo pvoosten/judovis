@@ -132,6 +132,33 @@ public sealed class PoseEditFile
         File.Move(temp, path, overwrite: true);
     }
 
+    /// <summary>
+    /// <see cref="Save"/> that reports failure instead of throwing: on Windows another process reading the file
+    /// (an editor's file watcher, the virus scanner) briefly makes replacing or deleting it fail. Try again later.
+    /// </summary>
+    public bool TrySave(string path, out string? error)
+    {
+        try
+        {
+            Save(path);
+            error = null;
+            return true;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            error = e.Message;
+            try
+            {
+                File.Delete(path + ".tmp");
+            }
+            catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException)
+            {
+                // a leftover temp file is overwritten by the next attempt
+            }
+            return false;
+        }
+    }
+
     private static float Round(float x, int digits) => (float)Math.Round(x, digits);
 
     private static Vec3 Round(Vec3 v, int digits) => new(Round(v.X, digits), Round(v.Y, digits), Round(v.Z, digits));

@@ -1,9 +1,23 @@
 - technique: kuzure_kesa_gatame
+  time: 0.92
+  phase: Controle (Arm)
+  who: tori
+  bone: right_forearm
+  text: hand moet eerst naar de kraag reiken, dan pas moet de elleboog veel plooien
+  status: open
+- technique: kuzure_kesa_gatame
   time: 0.97
   phase: Controle (Arm)
   who: tori
   bone: spine
   text: tori zweeft in de lucht
+  status: open
+- technique: kuzure_kesa_gatame
+  time: 1.04
+  phase: Controle (Arm)
+  who: tori
+  bone: right_hand
+  text: hand naar zich toe trekken moet ook uki dichterbij trekken. hand moet uki vasthouden
   status: open
 - technique: kuzure_kesa_gatame
   time: 1.06

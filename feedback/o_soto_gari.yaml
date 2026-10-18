@@ -6,6 +6,20 @@
   text: uki elleboog plots naar binnen gedraaid
   status: done
 - technique: o_soto_gari
+  time: 1.07
+  phase: Kake (Maaien)
+  who: uki
+  bone: right_leg
+  text: uki begint al te vallen zonder reden
+  status: open
+- technique: o_soto_gari
+  time: 1.21
+  phase: Nage (Worp)
+  who: tori
+  bone: right_leg
+  text: tori veegt niet. been van tori moet been van uki wegvegen
+  status: open
+- technique: o_soto_gari
   time: 1.22
   phase: Nage (Worp)
   who: tori

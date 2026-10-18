@@ -154,6 +154,13 @@ contact tools). Animated: ippon-seoi-nage, koshi-guruma (phase 8 pilot), o-uchi-
   in zanshin without it, by the user's choice: Definition of done items 6-7 (keep the sleeve, pull it
   up) are not met. Uki slaps with both arms.
 
+- Tate-shiho-gatame: 13.9 cm summed over 17 pairs, worst 2.9 cm (Tori's left forearm/hand on Uki's sleeve at
+  the entry 0.8 s, Tori's right thigh against Uki's thigh/hips while he spreads his legs, 1.2-3.2 s); planted
+  feet creep 0.5 cm. Hold 1.6-5.0 s (3.4 s). Tori lies lengthways on Uki, legs wide on the mat, right arm
+  round Uki's head, left hand on Uki's right sleeve; Tori's right leg is 5 deg beyond the hip range at the
+  bridge (3.1 s). Hand/arm detail is small in the side view; shoulders pinned only by body weight (no
+  review by a judo teacher yet). Balance is not reported (lying).
+
 ## Ippon-seoi-nage contact report — TODO
 
 Goal: no pairs beyond tolerance (worst first in `build/reports/ippon_seoi_nage.log`). `motion.avoid()`

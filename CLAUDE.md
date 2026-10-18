@@ -148,6 +148,12 @@ contact tools). Animated: ippon-seoi-nage, koshi-guruma (phase 8 pilot), o-uchi-
   motion and again after hinge_elbows() (the forearm twist moves the sleeve grip bones); other
   techniques may have hands off the sleeve that the contact report does not show.
 
+- Uki-goshi: 79 cm summed over 25 pairs, worst 11.5 cm (DoD 12 not met): Tori's left hand/forearm into Uki's
+  left shoulder/arm/chest as Uki rolls over the hip (1.84-2.0 s, same as koshi-guruma); Tori's right arm round
+  Uki's waist is allowed 12 cm against Uki's torso (arm hugging the flank, capsules too coarse). Left foot creeps
+  1.1 cm (DoD 13 marginal). Poses are koshi-guruma's with the arm on the waist: Uki's lift is not yet clearly
+  "floating" (Tori could stay higher with straighter legs). Roughly 11 of 13 DoD items met.
+
 - O-uchi-gari: 3.0 cm summed over 3 pairs, worst 1.5 cm (Uki's sleeve forearm on Tori's forearm up
   to the reap, thighs as Tori steps down at 1.46 s); grip gaps <= 0.2 cm (`check()` reports them).
   Tori lets go of the sleeve as Uki lands (1.56 s; the sleeve is out of reach on the mat) and stands

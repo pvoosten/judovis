@@ -129,7 +129,7 @@ A technique's kyu is the belt whose exam lists it; 6th kyu has none. Shime/kanse
 ## Status
 
 Phases 0-7 done (Blender MCP, judoka models, data model, player, cameras, HUD, catalogue, weight and
-contact tools). Animated: ippon-seoi-nage, koshi-guruma (phase 8 pilot), o-uchi-gari (3.0 cm summed), kuzure-kesa-gatame (passes all reports; hold 3.0 s), o-soto-gari. Known issues:
+contact tools). Animated: ippon-seoi-nage, koshi-guruma (phase 8 pilot), o-uchi-gari (3.0 cm summed), kuzure-kesa-gatame (passes all reports; hold 3.0 s), o-soto-gari, yoko-shiho-gatame. Known issues:
 - Uki's POV camera can end up inside Tori's head when heads touch.
 - Kuzure-kesa-gatame: 16.3 cm summed over 9 pairs, worst 6.0 cm; Tori hovers upright on his knees above Uki while sitting through (about 0.9-1.1 s, feedback open); Uki's right elbow twist at 2.08 s unverified (open).
 - Ippon-seoi-nage: overlaps up to ~3 cm beyond tolerance (16 cm summed over 25 pairs, most under
@@ -160,6 +160,12 @@ contact tools). Animated: ippon-seoi-nage, koshi-guruma (phase 8 pilot), o-uchi-
   round Uki's head, left hand on Uki's right sleeve; Tori's right leg is 5 deg beyond the hip range at the
   bridge (3.1 s). Hand/arm detail is small in the side view; shoulders pinned only by body weight (no
   review by a judo teacher yet). Balance is not reported (lying).
+
+- Yoko-shiho-gatame: 2.0 cm summed over 3 pairs, worst 1.7 cm beyond tolerance; Tori's toes creep <= 1.5 cm at the
+  foot lift-off (2.1 s); left hand on Uki's back collar (arm under his neck, head rests on it: tolerance 16 cm),
+  right hand on the belt; Tori's spine 10 deg beyond its joint range in the hold. Balance not checked (Tori lies on
+  Uki). Not met: Uki's escape is only a bridge (his hands do not push); the hold is reached with the arm under the
+  neck in one sweep (0.9-1.4 s), no explicit "sit through" step.
 
 ## Ippon-seoi-nage contact report — TODO
 
